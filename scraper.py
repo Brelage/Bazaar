@@ -1,5 +1,4 @@
 import requests
-import aiohttp
 import json
 import csv
 import time
@@ -76,6 +75,7 @@ class Scraper:
                         biolabel = True if biolabel else False
                         
                         self.products.append([name, amount, price, price_per_amount, offer, biolabel])
+                    print(f"finished page {self.page}")
                     self.page+=1
                     time.sleep(1)
                 else:
@@ -99,7 +99,10 @@ Last Page: {self.page-1}.
         with open(f"data/{filename}.csv", "w") as file:
             writer = csv.writer(file)
             writer.writerows(self.products)
+        print(f"finished creating csv file for {self.url}")
 
+
+print("starting to scrape websites")
 
 for url in websites:
     scraper = Scraper(url)

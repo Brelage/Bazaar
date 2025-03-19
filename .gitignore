@@ -178,3 +178,6 @@ tester.py
 
 headers.json
 soup.txt
+
+Dockerfile
+.dockerignore
