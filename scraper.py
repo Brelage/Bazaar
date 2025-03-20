@@ -4,6 +4,7 @@ import csv
 import time
 import re
 import os
+import random
 import pandas as pd
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
@@ -81,7 +82,7 @@ starting on {self.url}""")
                         self.products.append([name, amount, price, price_per_amount, offer, biolabel])
                     print(f"finished page {self.page}")
                     self.page+=1
-                    time.sleep(0.2)
+                    time.sleep(random.uniform(0.1,0.5))
                 else:
                     print(f"""Finished {self.url}. 
 Last Page: {self.page-1}.
