@@ -171,13 +171,12 @@ cython_debug/
 .pypirc
 .DS_Store
 
-data/
-
-tester.py
-
-
-headers.json
-soup.txt
-
+# Docker files
 Dockerfile
 .dockerignore
+
+# script specific files
+data/
+headers.json
+workbench/
+logs/
