@@ -14,11 +14,11 @@ from requests.exceptions import SSLError, RequestException
 startprocess = time.process_time()
 start = time.time()
 
-os.makedirs("logs", exist_ok=True)
+os.makedirs("logs/scraper", exist_ok=True)
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     handlers= [
-        logging.FileHandler(f"logs/{datetime.now().strftime("%Y.%m.%d-%H:%M")}.log"),
+        logging.FileHandler(f"logs/scraper/{datetime.now().strftime("%Y.%m.%d-%H-%M-%S")}.log"),
         logging.StreamHandler()
     ],
     level=logging.INFO,
@@ -97,8 +97,6 @@ starting to scrape %s""", self.url)
                     lastpage = soup.find_all("button", class_="PostRequestGetFormButton paginationPage paginationPageLink")
                     if lastpage:
                         self.last_page = int(lastpage[-1].get_text(strip=True))
-                    else: 
-                        self.last_page = 1
 
                 matches = soup.find_all("div", class_="search-service-productDetailsWrapper productDetailsWrapper")
                 for item in matches:
@@ -108,17 +106,6 @@ starting to scrape %s""", self.url)
                     name = item.find("div", class_="LinesEllipsis")
                     name = name.text if name else ""
                     name = re.sub(r"""[\"']""", "", name).strip()
-                    
-                    amount = item.find("div", class_="productGrammage search-service-productGrammage")
-                    amount = amount.text if amount else ""
-                    ppa = re.search(r"\((.*?)\)", amount)
-                    if ppa:
-                        price_per_amount = ppa.group(1)
-                        price_per_amount = re.sub(r"""^.*?=\s*|\).*$|[\"'€]""", "", price_per_amount).strip()
-                        price_per_amount = float(price_per_amount.replace(",", "."))
-                    else:
-                        price_per_amount = None
-                    amount = re.sub(r"""[\"']|\(.*?\)""", "", amount).strip()
                     
                     price = item.find("div", class_="search-service-productPrice productPrice") 
                     if price:
@@ -130,7 +117,23 @@ starting to scrape %s""", self.url)
                         price = item.find("div", class_="search-service-productOfferPrice productOfferPrice")
                         price = price.text
                         price = float(price.replace("€", "").replace(",",".").strip())
-
+                    
+                    amount = item.find("div", class_="productGrammage search-service-productGrammage")
+                    amount = amount.text if amount else ""
+                    ppa = re.search(r"\((.*?)\)", amount)
+                    if ppa:
+                        price_per_amount = ppa.group(1)
+                        price_per_amount = re.sub(r"""^.*?=\s*|\).*$|[\"'€]""", "", price_per_amount).strip()
+                        price_per_amount = re.sub(r"[^\d,.]", "", price_per_amount).replace(",", ".").strip()
+                        price_per_amount = round(float(price_per_amount), 2)
+                    else:
+                        try:
+                            amount_calc = int(re.sub(r"""[\"']|\(.*?\)|g(?=\d)|(?<=\d)g""", "", amount).strip())
+                            price_per_amount = round((price * (1000/amount_calc)), 2)
+                        except:
+                            amount = re.sub(r"""[\"']|\(.*?\)""", "", amount).strip()
+                            price_per_amount = price
+                    
                     biolabel = item.find("div", class_="organicBadge badgeItem search-service-organicBadge search-service-badgeItem")
                     biolabel = True if biolabel else False
                         
@@ -163,15 +166,14 @@ if __name__ == "__main__":
     scrapers = [Scraper(url) for url in websites]
     for instance in scrapers:
         instance.scrape()
-    endprocess = time.process_time()
     end = time.time()
-    
+    endprocess = time.process_time()
     logger.info(f"""
 FINISHED SCRAPING
 CHECK VOLUME FOR SCRAPED DATA.
 TOTAL CALLS MADE: {calls}
 TOTAL ITEMS FOUND: {total_items}
-TOTAL RUNTIME: {start - end}
-TOTAL CPU RUNTIME: {startprocess - endprocess}
+TOTAL RUNTIME: {round(end - start, 4)} seconds
+TOTAL CPU RUNTIME: {round(endprocess - startprocess, 4)} seconds
 """)
     sys.exit(0)
