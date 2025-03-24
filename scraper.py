@@ -18,7 +18,7 @@ os.makedirs("logs/scraper", exist_ok=True)
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     handlers= [
-        logging.FileHandler(f"logs/scraper/{datetime.now().strftime("%Y.%m.%d-%H-%M-%S")}.log"),
+        logging.FileHandler(f"logs/scraper/{datetime.now().strftime("%Y.%m.%d %H-%M-%S")}.log"),
         logging.StreamHandler()
     ],
     level=logging.INFO,
@@ -173,7 +173,7 @@ FINISHED SCRAPING
 CHECK VOLUME FOR SCRAPED DATA.
 TOTAL CALLS MADE: {calls}
 TOTAL ITEMS FOUND: {total_items}
-TOTAL RUNTIME: {round(end - start, 4)} seconds
+TOTAL RUNTIME: {int((end - start) // 60)} minutes and {int((end - start) % 60)} seconds (precice: {round(end - start, 4)} seconds)
 TOTAL CPU RUNTIME: {round(endprocess - startprocess, 4)} seconds
 """)
     sys.exit(0)

@@ -14,3 +14,4 @@ yarl==1.18.3
 cloudscraper==1.2.71
 requests-toolbelt==1.0.0
 fake-useragent==2.1.0
+dotenv==0.9.9
