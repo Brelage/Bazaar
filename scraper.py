@@ -131,8 +131,8 @@ starting to scrape %s""", self.url)
                             amount_calc = int(re.sub(r"""[\"']|\(.*?\)|g(?=\d)|(?<=\d)g""", "", amount).strip())
                             price_per_amount = round((price * (1000/amount_calc)), 2)
                         except:
-                            amount = re.sub(r"""[\"']|\(.*?\)""", "", amount).strip()
                             price_per_amount = price
+                    amount = re.sub(r"""[\"']|\(.*?\)""", "", amount).strip()
                     
                     biolabel = item.find("div", class_="organicBadge badgeItem search-service-organicBadge search-service-badgeItem")
                     biolabel = True if biolabel else False
