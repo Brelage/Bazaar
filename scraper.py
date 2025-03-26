@@ -14,11 +14,13 @@ from requests.exceptions import SSLError, RequestException
 startprocess = time.process_time()
 start = time.time()
 
-os.makedirs("logs/scraper", exist_ok=True)
+logs_path = os.path.join("bazaar", "logs", "scraper")
+os.makedirs(logs_path, exist_ok=True)
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     handlers= [
-        logging.FileHandler(f"logs/scraper/{datetime.now().strftime("%Y.%m.%d %H-%M-%S")}.log"),
+        logging.FileHandler(os.path.join(logs_path, (str(datetime.now().strftime("%Y.%m.%d %H-%M-%S")) + ".log"))),
         logging.StreamHandler()
     ],
     level=logging.INFO,
@@ -67,8 +69,8 @@ calls = 0
 total_items = 0
 
 logger.info("creating directory for data")
-folder_name = f"data/{datetime.now().strftime('%Y%m%d')}"
-os.makedirs(folder_name, exist_ok=True)
+data_path = os.path.join("bazaar", "data", datetime.now().strftime('%Y%m%d'))
+os.makedirs(data_path, exist_ok=True)
 
 
 class Scraper:
@@ -77,7 +79,7 @@ class Scraper:
         self.page = 1
         self.last_page = 1
         self.products = [
-            ["name", "amount", "price in €","€ per kg", "reduced price", "bio label"]
+            ["ID", "name", "amount", "price in €","€ per kg", "reduced price", "bio label"]
         ]
 
     def scrape(self):
@@ -98,11 +100,14 @@ starting to scrape %s""", self.url)
                     if lastpage:
                         self.last_page = int(lastpage[-1].get_text(strip=True))
 
-                matches = soup.find_all("div", class_="search-service-productDetailsWrapper productDetailsWrapper")
+                matches = soup.find_all("article")
                 for item in matches:
                     global total_items
                     total_items += 1
                     
+                    product_id = item.find("meso-data")
+                    product_id = int(product_id.get("data-productid")) if product_id else ""
+
                     name = item.find("div", class_="LinesEllipsis")
                     name = name.text if name else ""
                     name = re.sub(r"""[\"']""", "", name).strip()
@@ -137,7 +142,7 @@ starting to scrape %s""", self.url)
                     biolabel = item.find("div", class_="organicBadge badgeItem search-service-organicBadge search-service-badgeItem")
                     biolabel = True if biolabel else False
                         
-                    self.products.append([name, amount, price, price_per_amount, offer, biolabel])
+                    self.products.append([product_id, name, amount, price, price_per_amount, offer, biolabel])
                 logger.info("successfully scraped page %s", self.page)
                 self.page += 1
                 time.sleep(1)
@@ -155,12 +160,13 @@ starting to scrape %s""", self.url)
 
     def save_to_csv(self):
         filename = re.sub(r"^https?://", " ", self.url)
-        filename = re.sub(r"[/.]", "_", filename)
-        with open(f"{folder_name}/{filename}.csv", "w") as file:
+        filename = re.sub(r"[/.]", "_", filename) + ".csv"
+        with open(os.path.join(data_path, filename), "w") as file:
             writer = csv.writer(file)
             writer.writerows(self.products)
         logger.info("""finished writing csv file %s
               """, filename)
+
 
 if __name__ == "__main__":
     scrapers = [Scraper(url) for url in websites]
@@ -174,6 +180,6 @@ CHECK VOLUME FOR SCRAPED DATA.
 TOTAL CALLS MADE: {calls}
 TOTAL ITEMS FOUND: {total_items}
 TOTAL RUNTIME: {int((end - start) // 60)} minutes and {int((end - start) % 60)} seconds (precice: {round(end - start, 4)} seconds)
-TOTAL CPU RUNTIME: {round(endprocess - startprocess, 4)} seconds
+TOTAL CPU RUNTIME: {round(endprocess - startprocess, 2)} seconds
 """)
     sys.exit(0)
