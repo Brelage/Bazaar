@@ -40,7 +40,7 @@ data_path = os.path.join("data", datetime.now().strftime('%Y%m%d'))
 os.makedirs(data_path, exist_ok=True)
 
 ## loads all websites in the websites.json file as a global variable for reference to the Scraper class
-with open ("websites", "r") as file:
+with open ("websites.json", "r") as file:
     websites = json.load(file).get("websites", [])
 
 ## creates headers, cookies, and a session for the HTTP requests as global variables (to avoid dedundant duplicate variables) for reference to the Scraper class
@@ -53,13 +53,13 @@ headers = {
         "Connection": "keep-alive",
         "Cache-Control": "max-age=0"
     }
+with open("cookies.json", "r") as file:
+    location = json.load(file).get("locations", {}).get("Tussmannstr. 41-63, 40477 Düsseldorf / Pempelfort")    
 load_dotenv()
 cookies = {
-     "_rdfa": os.getenv("_rdfa", ""),
-     "cf_clearance": os.getenv("cf_clearance", "")
+    "_rdfa": location,
+    "cf_clearance": os.getenv("cf_clearance", "")
     }
-if not cookies["_rdfa"] or not cookies["cf_clearance"]:
-    raise ValueError("Missing required cookies. Check environment variables.")
 session = cloudscraper.CloudScraper()
 
 
@@ -201,7 +201,7 @@ starting to scrape %s""", self.url)
         """
         creates a csv file out of all the products saved in the self.products variable
         """
-        filename = re.sub(r"^https?://", " ", self.url)
+        filename = re.sub(r"^https?://", "", self.url)
         filename = re.sub(r"[/.]", "_", filename) + ".csv"
         with open(os.path.join(data_path, filename), "w") as file:
             writer = csv.writer(file)
