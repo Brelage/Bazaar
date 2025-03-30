@@ -83,9 +83,9 @@ class Scraper:
         self.last_page = 1 # during the scrape method, this will get updated to the actual last page if there is more than one page
         self.products_per_page = 250 # the maximum amount of objects that can be shown on a single page is 250
         self.products = [
-            ["ID", "name", "amount", "price in €","€ per kg", "reduced price", "bio label"]
+            ["ID", "name", "amount", "price in €","€ per kg", "reduced price", "bio label", "category"]
         ] # the header row for the csv file, structured as a list of lists for constructing a csv file 
-
+        self.categoy = re.sub(r"^https?://shop.rewe.de/c/", "", self.url)
 
     def check_pagination(self, soup):
         """
@@ -178,7 +178,7 @@ starting to scrape %s""", self.url)
                     biolabel = True if biolabel else False
 
                     ## appends all data points of the product to the self.products variable to construct a table of products    
-                    self.products.append([product_id, name, amount, price, price_per_amount, offer, biolabel])
+                    self.products.append([product_id, name, amount, price, price_per_amount, offer, biolabel, self.categoy])
                 
                 logger.info("successfully scraped page %s", self.page)
                 self.page += 1
