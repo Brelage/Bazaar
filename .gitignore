@@ -180,3 +180,4 @@ data/
 headers.json
 workbench/
 logs/
+store_locations.json
