@@ -7,7 +7,6 @@ import sys
 import logging
 import cloudscraper
 import pandas as pd
-from dotenv import load_dotenv
 from fake_useragent import UserAgent
 from datetime import datetime
 from bs4 import BeautifulSoup
