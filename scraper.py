@@ -317,7 +317,7 @@ class Scraper:
                         biolabel = True if biolabel else False
 
                         ## appends all data points of the product to the self.products variable to construct a table of products
-                        products.append([product_id, name, amount, price, price_per_amount, offer, biolabel, category])
+                        products.append([product_id, name, amount, price, price_per_amount, offer, biolabel, category, self.location])
                     
                     self.parent.logger.info("successfully scraped page %s", page)
                     page += 1
@@ -346,7 +346,7 @@ class Scraper:
                         self.scrape()
             
             ## creates a Pandas dataframe out of all the gathered products and stores it in the list variable called "self.all_products"
-            df = pd.DataFrame(products, columns=["ID", "name", "amount", "price in €","€ per kg", "reduced price", "bio label", "category"])
+            df = pd.DataFrame(products, columns=["ID", "name", "amount", "price in €","€ per kg", "reduced price", "bio label", "category", "location"])
             df.fillna(0)
             df.set_index("ID")
             self.all_products[category] = df
