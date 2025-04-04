@@ -190,14 +190,8 @@ class Scraper:
                 "Cache-Control": "max-age=0"
             }
         
-        load_dotenv()
-        cf_clearance = os.getenv("cf_clearance", "")
-        if not cf_clearance:
-            self.logger.critical("cf_clearance environment variable is missing")
-            raise ValueError
         cookies = {
             "_rdfa": self.location_cookie,
-            "cf_clearance": cf_clearance
             }
         
         session = cloudscraper.CloudScraper()
@@ -332,6 +326,7 @@ class Scraper:
                 
                 except SSLError as e:
                     self.parent.logger.critical(f"SSL error: {e}.")
+                    self.parent.logger.info(f"will retry in 10 seconds")
                     self.failed_attempts += 1
                     if self.failed_attempts > 5:
                         self.parent.logger.critical(f"maximum attempts reached. Quitting program.")
@@ -342,6 +337,7 @@ class Scraper:
                 
                 except RequestException as e:
                     self.parent.logger.critical(f"Request failed: {e}.")
+                    self.parent.logger.info(f"will retry in 10 seconds")
                     self.failed_attempts += 1
                     if self.failed_attempts > 5:
                         self.parent.logger.critical(f"maximum attempts reached. Quitting program.")
