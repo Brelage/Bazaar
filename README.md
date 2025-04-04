@@ -1,11 +1,11 @@
 # Bazaar
 Scraper of supermarket product data using BeautifulSoup for parsing. 
-Will scrape any websites that are listed in the script.
 In its current state, this program is built with the REWE supermarket website as reference.
 
 
 ## Features
-- The script creates csv files that have the following columns: name, amount, price per item, price per kilogramm, whether the product currently has a reduced price, whether the product has a bio label. The scraped data is cleaned using regular expressions for easier data processing further down in the pipeline.
+- The script creates pandas DataFrames, which in turn can either be used to write to a relational database or create csv files that have the following columns: name, amount, price per item, price per kilogramm, whether the product currently has a reduced price, whether the product has a bio label, which category it belongs to. The scraped data is cleaned using regular expressions for easier data processing further down in the pipeline.
+- The script has a modular, object-oriented structure, making it easy for scaling. Depending on how the store_locations.json and websites.json files are configured, this script will scrape all products (or a specific subset) of all stores declared in the store_locations.json file.
 - The script checks for pagination of the website in its first http request and iterates over the pages according to the amount of existing pages. This avoids unnecessary http requests and errors while scraping.
 - The script creates logs to track runtime, CPU usage time, amount of sites scraped, and amount of products found.
 - The script bypasses Cloudflare javascript blocking by using the cloudscraper library. It preloads randomized User-Agents, headers, and cookies for HTTP-Requests to bypass Cloudflare bot detection. The requests to the websites usually reach a cloudflareBotScore (a score from 1 to 99 that indicates how likely that request came from a bot) above 90. According to Cloudflare, "a score of 1 means Cloudflare is quite certain the request was automated, while a score of 99 means Cloudflare is quite certain the request came from a human".
@@ -25,8 +25,11 @@ git clone https://github.com/Brelage/Bazaar
 pip install -r requirements.txt
 ```
 
-3. create a .env file: When opening any of the webpages of the REWE supermarket in a browser, a pop-up window shows up asking for a postcode to find the closest supermarket. In order to bypass the pop-up window, two cookies need to be sent along with the http request: "_rdfa" and "cf_clearance". In its current form, the script fetches these cookies from a .env file in order to make functioning queries. Since automated cookie generation isn't implemented yet, you need to extract these two cookies from your own browser session and save them in a .env file (see the .env.example file as reference). 
+3. store session cookies in store_locations.json file: 
+When opening any of the webpages of the REWE supermarket in a browser, a pop-up window shows up asking for a postcode to find the closest supermarket. In order to inform the Scraper which supermarket to scrape, a cookie with the name "_rdfa" needs to be sent along with the http request, with _rdfa being a session cookie that informs the website about the desired store. 
+Since automated cookie generation isn't implemented yet, you need to extract this cookie from your own browser session after you have selected a store location and save it in the the store_locations.json file (see the store_locations_example.json file as reference). 
 
+4. (optional) configure the websites.json file to only scrape certain categories of the supermarket
 
 ## Planned features 
 - automated data analysis: The csv files created through the scraper script are planned to form the basis of a database to track changes in the available products of supermarkets. Automated daily scraping combined with automated data analysis could allow for automated findings of trends in the products. 
