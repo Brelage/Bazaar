@@ -1,5 +1,6 @@
 # Bazaar
-Scraper of supermarket product data using BeautifulSoup for parsing. 
+Web scraping project that tracks data points such as prices and offers of supermarket products over time and integrates data collection, storage, and analysis. It uses an object-oriented approach, scrapes websites using BeautifulSoup, and uses SQLAlchemy for database management. The project can be containerized with Docker.
+
 In its current state, this program is built with the REWE supermarket website as reference.
 
 
