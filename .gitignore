@@ -182,3 +182,4 @@ logs/
 store_locations.json
 alembic.ini
 alembic/
+data/
