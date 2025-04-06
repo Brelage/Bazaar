@@ -176,8 +176,9 @@ Dockerfile
 .dockerignore
 
 # script specific files
-data/
 headers.json
 workbench/
 logs/
 store_locations.json
+alembic.ini
+alembic/
