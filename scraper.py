@@ -7,6 +7,7 @@ import sys
 import logging
 import cloudscraper
 import pandas as pd
+from pathlib import Path
 from fake_useragent import UserAgent
 from datetime import datetime
 from bs4 import BeautifulSoup
@@ -37,7 +38,6 @@ class Application:
         self.total_items = 0 ## variable for the Scraper class to track the amount of products scraped, which will be documented in the logs file
         self.today = datetime.now().strftime('%Y%m%d')
         self.setup_logger()
-        self.setup_data_storage()
         self.store_locations = self.setup_locations()
         self.scrapers = self.setup_scrapers()
         
@@ -70,13 +70,26 @@ class Application:
             self.logger.addHandler(stream_handler)
 
 
-    def setup_data_storage(self):
+    def setup_data_storage(self, sqlite=True):
         """
-        creates a "data" folder (if it does not exist already) and a subfolder named after the current date into which the scraped data will be saved
+        checks for a "data" folder, a database.db file, and a subfolder named after the current date into which the scraped data will be saved, and creates them if they do not exist already.
         """
-        self.logger.info("creating directory for data")
-        self.data_path = os.path.join("data", self.today)
-        os.makedirs(self.data_path, exist_ok=True)
+        if sqlite == True:
+            data_path = Path("data")
+            if not data_path.exists():
+                self.logger.info("creating directory for data")
+                os.makedirs(data_path)
+            
+            database_file = Path("data", "bazaar.db")
+            if not database_file.exists():
+                self.logger.info("creating database")
+                database_file.touch()
+            
+            self.today_data_path = Path("data", self.today)
+            if not self.today_data_path.exists():
+                self.logger.info("creating data folder for today")
+                os.makedirs(self.today_data_path, exist_ok=True)
+        
 
 
     def setup_locations(self):
@@ -362,11 +375,12 @@ class Scraper:
         """
         creates csv files for each category listed in the websites.json file out of all the products saved in the self.all_products variable.
         """
+        self.parent.setup_data_storage()
         self.parent.logger.info("creating csv files...")
         
         for category, dataframe in self.all_products.items():
             category = category
-            filename = os.path.join(self.parent.data_path, f"{category}.csv")
+            filename = os.path.join(self.parent.today_data_path, f"{category}.csv")
             dataframe.drop("category", axis=1)
             dataframe.to_csv(filename)
 
@@ -377,10 +391,11 @@ class Scraper:
         """
         creates a csv file out of all the products saved in the self.all_products variable based on the 
         """
+        self.parent.setup_data_storage()
         self.parent.logger.info("creating csv file...")
 
         dataframe = pd.concat(self.all_products.values())
-        filename = os.path.join(self.parent.data_path, f"{self.parent.today}.csv")
+        filename = os.path.join(self.parent.today_data_path, f"{self.parent.today}.csv")
         dataframe.to_csv(filename)
         
         self.parent.logger.info("""finished writing csv file %s""", filename)
