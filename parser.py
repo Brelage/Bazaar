@@ -16,8 +16,7 @@ def main():
     parser = Parser() 
     parser.start_logger()
     parser.parse_data(extract_outliers=True)
-    ## parser.create_plotly_graph()
-    ## parser.create_seaborn_graph()
+    ## parser.create_graph(save_graph=True)
     ## parser.insert_into_database()
     ## parser.stop_program()
     sys.exit(0)
@@ -66,36 +65,36 @@ class Parser:
         self.df = df
 
 
-    def create_plotly_graph(self, dataframe, save_graph=False):
+    def create_graph(self, dataframe, type="plotly", save_graph=False):
         df = dataframe
-        fig = px.scatter(
-            df, 
-            x=df["price in €"], 
-            y=df["€ per kg"], 
-            title="fruit & vegetables price distribution",
-            labels={"x": "X Axis Label", "y": "Y Axis Label"},
-            symbol=df["name"]
-        )
         
-        fig.show()
+        if type == "plotly":
+            fig = px.scatter(
+                df, 
+                x=df["price in €"], 
+                y=df["€ per kg"], 
+                title="fruit & vegetables price distribution",
+                labels={"x": "X Axis Label", "y": "Y Axis Label"},
+                symbol=df["name"]
+            )
+            
+            fig.show()
+        
+        elif type == "seaborn":
+            seaborn.scatterplot(x=dataframe["€ per kg"], y=dataframe["price in €"])
+            
+            plt.title("price per unit to price per KG correlation")
+            plt.xlabel("price per kg")
+            plt.ylabel("price per unit")
+            
+            plt.show()
+
+        else:
+            raise KeyError
 
         if save_graph:
             fig.write_html("my_graph.html")
 
-
-    def create_seaborn_graph(self, dataframe, save_graph=False):
-        save_graph = save_graph
-        seaborn.scatterplot(x=dataframe["€ per kg"], y=dataframe["price in €"])
-        
-        plt.title("price per unit to price per KG correlation")
-        plt.xlabel("price per kg")
-        plt.ylabel("price per unit")
-        
-        plt.show()
-
-        if save_graph:
-            plt.savefig()
-        
 
     def insert_into_database(self):
         self.logger.info("connecting to database")
