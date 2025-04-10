@@ -79,6 +79,8 @@ class Parser:
             )
             
             fig.show()
+            if save_graph:
+                fig.write_html("graph.html")
         
         elif type == "seaborn":
             seaborn.scatterplot(x=dataframe["€ per kg"], y=dataframe["price in €"])
@@ -88,12 +90,11 @@ class Parser:
             plt.ylabel("price per unit")
             
             plt.show()
+            plt.savefig("graph.png")
 
         else:
             raise KeyError
 
-        if save_graph:
-            fig.write_html("my_graph.html")
 
 
     def insert_into_database(self):
