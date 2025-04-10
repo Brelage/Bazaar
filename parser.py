@@ -90,7 +90,8 @@ class Parser:
             plt.ylabel("price per unit")
             
             plt.show()
-            plt.savefig("graph.png")
+            if save_graph:
+                plt.savefig("graph.png")
 
         else:
             raise KeyError
