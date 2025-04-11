@@ -12,7 +12,8 @@ from sqlalchemy.orm import declarative_base, relationship
 """
 SQLAlchemy script that creates ORMs for interacting with the database.
 In effect, this script resembles the database shema.
-initiating Alembic on this program will create the tables in the database according to this schema (read the README for more detailed instructions).
+initiating Alembic on this program will create the tables in the 
+database according to this schema (read the README for more detailed instructions).
 """
 
 Base = declarative_base()
@@ -39,9 +40,7 @@ class Products(Base):
 
     product_id = Column(Integer, primary_key=True)
     product_name = Column(String(255), nullable=False)
-    listed_amount = Column(DECIMAL(10,2))
-    listed_unit = Column(String(10))
-    has_bio_label = Column(Boolean, nullable=False)
+    has_bio_label = Column(Boolean, nullable=False, default=False)
     category_id = Column(ForeignKey("categories.category_id"), nullable=False, index=True)
 
     category = relationship("Categories", back_populates="products")
@@ -51,14 +50,14 @@ class ProductObservations(Base):
     __tablename__ = "product_observations" 
 
     observation_id = Column(Integer, primary_key=True, autoincrement=True)
-    product_id = Column(Integer, ForeignKey("products.product_id"), index=True)
     store_id = Column(Integer, ForeignKey("stores.store_id"), index=True)
+    product_id = Column(Integer, ForeignKey("products.product_id"), index=True)
     date = Column(Date, nullable=False, index=True)
     listed_price = Column(DECIMAL(10,2))
-    listed_price_per_standard_unit = Column(DECIMAL(10, 2), nullable=True)
-    listed_unit_measure = Column(String(10), nullable=True)
-    is_available = Column(Boolean, nullable=False)
+    listed_amount = Column(DECIMAL(10,2))
+    listed_unit = Column(String(10))
     is_on_offer = Column(Boolean, nullable=False)
+    is_available = Column(Boolean, nullable=False)
 
     store = relationship("Stores", back_populates="observations")
     product = relationship("Products", back_populates="observations")
@@ -73,3 +72,17 @@ class DailyStatistics(Base):
     median = Column(DECIMAL(10, 4))
     amount_bio_products = Column(Integer)
     amount_reduced_products = Column(Integer)
+
+class DailyData(Base):
+    __tablename__ = "daily_data"
+
+    date = Column(Date, primary_key=True, index=True)
+    store_id = Column(Integer, ForeignKey("stores.store_id"), primary_key=True, index=True)
+    product_id = Column(Integer, primary_key=True)
+    product_name = Column(String(255), nullable=False)
+    has_bio_label = Column(Boolean, nullable=False, default=False)
+    category_id = Column(ForeignKey("categories.category_id"), nullable=False, index=True)
+    listed_price = Column(DECIMAL(10,2))
+    listed_amount = Column(DECIMAL(10,2))
+    listed_unit = Column(String(10))
+    is_on_offer = Column(Boolean, nullable=False)
