@@ -1,7 +1,14 @@
 # Bazaar
-Web scraping project that tracks data points such as prices and offers of supermarket products over time and integrates data collection, storage, and analysis. It uses an object-oriented approach, scrapes websites using BeautifulSoup, and uses SQLAlchemy for database management. The project can be containerized with Docker.
+Bazaar tracks data points such as prices and offers of supermarket products over time and integrates data collection, storage, and analysis. It uses an object-oriented approach, scrapes websites using BeautifulSoup, and uses SQLAlchemy for database management. The project can be containerized with Docker.
 
 In its current state, this program is built with the REWE supermarket website as reference.
+
+
+## Software Architecture
+Bazaar consists of three structural parts: 
+1. the webscraper for gathering the data
+2. the database for organizing and storing the data
+3. the parser for analysing the data and gaining insights
 
 
 ## Features
@@ -11,6 +18,27 @@ In its current state, this program is built with the REWE supermarket website as
 - The program creates logs to track runtime, CPU usage time, amount of sites scraped, and amount of products found.
 - The program bypasses Cloudflare javascript blocking by using the cloudscraper library. It preloads randomized User-Agents, headers, and cookies for HTTP-Requests to bypass Cloudflare bot detection. The requests to the websites usually reach a cloudflareBotScore (a score from 1 to 99 that indicates how likely that request came from a bot) above 90. According to Cloudflare, "a score of 1 means Cloudflare is quite certain the request was automated, while a score of 99 means Cloudflare is quite certain the request came from a human".
 - as testing has shown, the fairly robust anti-detection measures also enable this program to run inside a docker container and remain undetected, allowing for containerized deployment.
+
+
+## Database schema
+This program was written with SQLAlchemy for an agnostic approach to Database Management Systems. It uses Alembic for database initiation and migration.
+the structure of the schema is as follows:
+- DailyData: this is the entry point for the results of the webscraper. The data in this table is used to check for daily changes, which will get documented in the ProductObservations table. 
+- Stores: tracks which stores are being tracked.
+- Categories: tracks the different categories that a product can have.
+- Products: tracks all products, meaning every product offered by REWE. 
+    - Depending on the store, prices, availability etc. might vary, which is why this table only stores static data about the products.
+- ProductObservations: this tracks all changes to products across supermarkets.
+    - Tracks price or amount changes, whether a product is on offer, and whether the product is still available.
+    - This table provides the data to create historical analysis of any product.
+- DailyStatistics: tracks daily metadata about all stores being tracked. 
+    - Metadata includes:
+        - the mean price and the median price of every category for the day
+        - the amount of products with a bio-label 
+        - the amount of products that are currently on offer
+    - data in this table is based on the calculations made by the parser.py script.
+Below is a graphical representation of the database schema and the relationships between the tables:
+![Database Schema](https://i.imgur.com/aSQ15Wp.png)
 
 
 ## Setup
@@ -43,24 +71,6 @@ alembic upgrade head
 ```
 
 5. (optional) configure the websites.json file to only scrape certain categories of the supermarket
-
-
-## Database schema
-This program was written with SQLAlchemy for an agnostic approach to Database Management Systems. It uses Alembic for database initiation and migration.
-the structure of the schema is as follows:
-- Stores: tracks which stores are being tracked.
-- Categories: tracks the different categories that a product can have.
-- Products: tracks all products, meaning every product offered by REWE. 
-    - Depending on the store, prices, availability etc. might vary, which is why this table only stores static data about the products.
-- ProductObservations: this tracks all changes to products across supermarkets.
-    - Tracks price changes, whether a product is on offer, and whether the product is still available.
-    - This table provides the data to create historical analysis of any product.
-- DailyStatistics: tracks daily metadata about all stores being tracked. 
-    - Metadata includes:
-        - the mean price and the median price of every category for the day
-        - the amount of products with a bio-label 
-        - the amount of products that are currently on offer
-    - data in this table is based on the calculations made by the parser.py script.
 
 
 ## Planned features 
