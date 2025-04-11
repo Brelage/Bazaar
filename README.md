@@ -37,6 +37,7 @@ the structure of the schema is as follows:
         - the amount of products with a bio-label 
         - the amount of products that are currently on offer
     - data in this table is based on the calculations made by the parser.py script.
+
 Below is a graphical representation of the database schema and the relationships between the tables:
 ![Database Schema](https://i.imgur.com/aSQ15Wp.png)
 
