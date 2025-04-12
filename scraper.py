@@ -21,7 +21,7 @@ def main():
         scraper.scrape()
         scraper.save_as_csv_by_category()
         scraper.save_as_single_csv()
-        scraper.write_to_database()
+       ## scraper.write_to_database()
     application.stop_program()
 
 
@@ -44,7 +44,10 @@ class Application:
         
 
     def setup_logger(self):
-        """creates a logger for monitoring both in the terminal and for reference in a "logs" folder in a subfolder named after the current date"""
+        """
+        creates a logger for monitoring both in the terminal and for reference in 
+        a "logs" folder in a subfolder named after the current date
+        """
         
         logs_path = os.path.join("logs", "scraper")
         os.makedirs(logs_path, exist_ok=True)
@@ -73,7 +76,8 @@ class Application:
 
     def setup_data_storage(self, sqlite=True):
         """
-        checks for a "data" folder, a database.db file, and a subfolder named after the current date into which the scraped data will be saved, and creates them if they do not exist already.
+        checks for a "data" folder, a database.db file, and a subfolder named after
+        the current date into which the scraped data will be saved, and creates them if they do not exist already.
         """
         if sqlite == True:
             data_path = Path("data")
@@ -95,7 +99,8 @@ class Application:
 
     def setup_locations(self):
         """
-        gets all key-value pairs in the store_locations.json file, which includes the address of a store and the session cookie to load the store-specific data on the website
+        gets all key-value pairs in the store_locations.json file, which includes the address of
+        a store and the session cookie to load the store-specific data on the website.
         """
         try:
             with open("store_locations.json", "r") as file:
@@ -115,7 +120,7 @@ class Application:
 
     def setup_scrapers(self):
         """
-        creates instances of the Scraper class based on the amount of URLs in the websites.json file
+        creates instances of the Scraper class based on the amount of URLs in the websites.json file.
         """
         with open ("websites.json", "r") as file:
             try:
@@ -191,7 +196,8 @@ class Scraper:
 
     def setup_request_session(self):
         """
-        creates a session with headers (that lower chance of bot detection) and cookies (that informs the REWE website which store's products to show) for the HTTP requests.
+        creates a session with headers (that lower chance of bot detection) and 
+        cookies (that informs the REWE website which store's products to show) for the HTTP requests.
         """
         ua = UserAgent()
         headers = {
@@ -232,7 +238,19 @@ class Scraper:
 
 
     def parse_amount(self, amount):
-        amount_cleaned = re.sub(r"\s+", "", amount)
+        """
+        takes the amount scraped from the website and parses it for mentions of any typically 
+        found standard units like gramm or liter and extracts the listed amount and unit accordingly.
+
+        Args:
+        amount: a string derived from the BeautifulSoup item that mentions the amount of a product.
+
+        Output:
+        listed_amount: a float that only lists the amount of the product.
+        listed_unit: a string that only lists the unit of the product.
+        """
+        amount_cleaned = re.sub(r"""[\"']|\(.*?\)""", "", amount).strip()
+        amount_cleaned = re.sub(r"\s+", "", amount_cleaned)
         listed_amount = None
         listed_unit = None
         units = ["g", "ml", "kg", "l"]
@@ -296,7 +314,7 @@ class Scraper:
                         with open(f"workbench/soup_html_{self.parent.today}.html", "w") as file:
                             file.write(soup.prettify())
 
-
+                    ## this will only run once since the loop exits after one round unless a last page higher than 1 is found
                     if page == 1:
                         last_page = self.check_pagination(soup)
 
@@ -394,9 +412,10 @@ class Scraper:
                                                  "category_ID", 
                                                  "listed_price", 
                                                  "listed_amount", 
+                                                 "listed_unit",
                                                  "is_on_offer"])
             df.fillna(0)
-            df.set_index("ID")
+            df.set_index("product_ID")
             self.all_products[category] = df
             
             page -= 1
@@ -415,9 +434,8 @@ class Scraper:
         self.parent.logger.info("creating csv files...")
         
         for category, dataframe in self.all_products.items():
-            category = category
             filename = os.path.join(self.parent.today_data_path, f"{category}.csv")
-            dataframe.drop("category", axis=1)
+            dataframe.drop("category_ID", axis=1)
             dataframe.to_csv(filename)
 
             self.parent.logger.info("""finished writing csv file %s""", filename)
