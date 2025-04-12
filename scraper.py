@@ -231,6 +231,38 @@ class Scraper:
             return 1
 
 
+    def parse_amount(self, amount):
+        amount_cleaned = re.sub(r"\s+", "", amount)
+        listed_amount = None
+        listed_unit = None
+        units = ["g", "ml", "kg", "l"]
+        
+        for unit in units:
+            try:
+                search_unit = re.search(rf"(\d+)(?={unit})", amount_cleaned)
+                if search_unit:
+                    if "," in amount_cleaned:
+                        listed_amount = re.search(r"\d+(\,\d+)?", amount_cleaned)
+                        listed_amount = float(listed_amount.group().replace(",", "."))
+                    else:
+                        listed_amount = float(search_unit.group(1))
+                    listed_unit = unit
+            except:
+                pass
+
+        if not listed_amount:
+            listed_amount = 1.0
+            listed_unit = "piece"
+            
+        try:
+            multiplier = re.search(r"\d+(?=x)", amount_cleaned).group()
+            if multiplier:
+                listed_amount = float(multiplier) * float(listed_amount)
+        except:
+            pass
+
+        return listed_amount, listed_unit
+
 
     def scrape(self):
         """
@@ -307,24 +339,7 @@ class Scraper:
                         ## gets cleaned up through regular expressions later on after it was used as reference for the price_per_amount data point
                         listed_amount = item.find("div", class_="productGrammage search-service-productGrammage")
                         listed_amount = listed_amount.text if listed_amount else "1 Stück"
-                        
-                        ## filters for any mentions of price per kg in the "amount" variable and either extracts it from the variable using regular expressions 
-                        ## or calculates it based on the amount and the price
-                        ppa = re.search(r"\((.*?)\)", listed_amount)
-                        if ppa:
-                            price_per_amount = ppa.group(1)
-                            price_per_amount = re.sub(r"""^.*?=\s*|\).*$|[\"'€]""", "", price_per_amount).strip()
-                            price_per_amount = re.sub(r"[^\d,.]", "", price_per_amount).replace(",", ".").strip()
-                            price_per_amount = round(float(price_per_amount), 2)
-                        else:
-                            try:
-                                amount_calc = int(re.sub(r"""[\"']|\(.*?\)|g(?=\d)|(?<=\d)g""", "", listed_amount).strip())
-                                price_per_amount = round((listed_price * (1000/amount_calc)), 2)
-                            except:
-                                price_per_amount = listed_price
-                        
-                        listed_amount = re.sub(r"""[\"']|\(.*?\)""", "", listed_amount).strip()
-                        listed_amount = re.sub(r"zzgl\..*?Pfand", "", listed_amount).strip()
+                        listed_amount, listed_unit = self.parse_amount(listed_amount)                        
                         
                         ## checks if the product has a bio-label and assigns either True or False to the "bio label" data point of the product
                         biolabel = item.find("div", class_="organicBadge badgeItem search-service-organicBadge search-service-badgeItem")
