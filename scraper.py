@@ -12,7 +12,8 @@ from fake_useragent import UserAgent
 from datetime import datetime
 from bs4 import BeautifulSoup
 from requests.exceptions import SSLError, RequestException
-
+from models import DailyData
+from database_engine import SessionLocal
 
 def main():
     application = Application()
@@ -291,25 +292,25 @@ class Scraper:
                         
                         ## gets the price of the product and turns it into an integer
                         ## checks if the product has a reduced price and assigns either True or False to the "reduced price" data point of the product
-                        price = item.find("div", class_="search-service-productPrice productPrice") 
-                        if price:
-                            offer = False
-                            price = price.text
-                            price = float(price.replace("€", "").replace(",",".").strip())
+                        listed_price = item.find("div", class_="search-service-productPrice productPrice") 
+                        if listed_price:
+                            is_on_offer = False
+                            listed_price = listed_price.text
+                            listed_price = float(listed_price.replace("€", "").replace(",",".").strip())
                         else:
-                            offer = True
-                            price = item.find("div", class_="search-service-productOfferPrice productOfferPrice")
-                            price = price.text
-                            price = float(price.replace("€", "").replace(",",".").strip())
+                            is_on_offer = True
+                            listed_price = item.find("div", class_="search-service-productOfferPrice productOfferPrice")
+                            listed_price = listed_price.text
+                            listed_price = float(listed_price.replace("€", "").replace(",",".").strip())
                         
                         ## gets the listed amount of the product 
                         ## gets cleaned up through regular expressions later on after it was used as reference for the price_per_amount data point
-                        amount = item.find("div", class_="productGrammage search-service-productGrammage")
-                        amount = amount.text if amount else "1 Stück"
+                        listed_amount = item.find("div", class_="productGrammage search-service-productGrammage")
+                        listed_amount = listed_amount.text if listed_amount else "1 Stück"
                         
                         ## filters for any mentions of price per kg in the "amount" variable and either extracts it from the variable using regular expressions 
                         ## or calculates it based on the amount and the price
-                        ppa = re.search(r"\((.*?)\)", amount)
+                        ppa = re.search(r"\((.*?)\)", listed_amount)
                         if ppa:
                             price_per_amount = ppa.group(1)
                             price_per_amount = re.sub(r"""^.*?=\s*|\).*$|[\"'€]""", "", price_per_amount).strip()
@@ -317,20 +318,30 @@ class Scraper:
                             price_per_amount = round(float(price_per_amount), 2)
                         else:
                             try:
-                                amount_calc = int(re.sub(r"""[\"']|\(.*?\)|g(?=\d)|(?<=\d)g""", "", amount).strip())
-                                price_per_amount = round((price * (1000/amount_calc)), 2)
+                                amount_calc = int(re.sub(r"""[\"']|\(.*?\)|g(?=\d)|(?<=\d)g""", "", listed_amount).strip())
+                                price_per_amount = round((listed_price * (1000/amount_calc)), 2)
                             except:
-                                price_per_amount = price
+                                price_per_amount = listed_price
                         
-                        amount = re.sub(r"""[\"']|\(.*?\)""", "", amount).strip()
-                        amount = re.sub(r"zzgl\..*?Pfand", "", amount).strip()
+                        listed_amount = re.sub(r"""[\"']|\(.*?\)""", "", listed_amount).strip()
+                        listed_amount = re.sub(r"zzgl\..*?Pfand", "", listed_amount).strip()
                         
                         ## checks if the product has a bio-label and assigns either True or False to the "bio label" data point of the product
                         biolabel = item.find("div", class_="organicBadge badgeItem search-service-organicBadge search-service-badgeItem")
                         biolabel = True if biolabel else False
 
                         ## appends all data points of the product to the self.products variable to construct a table of products
-                        products.append([product_id, name, amount, price, price_per_amount, offer, biolabel, category, self.location])
+                        products.append([self.parent.today,
+                                         self.location,
+                                         product_id, 
+                                         name, 
+                                         biolabel, 
+                                         category, 
+                                         listed_price, 
+                                         listed_amount, 
+                                         listed_unit, 
+                                         is_on_offer, 
+                                         ])
                     
                     self.parent.logger.info("successfully scraped page %s", page)
                     page += 1
@@ -358,8 +369,17 @@ class Scraper:
                         time.sleep(10)
                         self.scrape()
             
-            ## creates a Pandas dataframe out of all the gathered products and stores it in the list variable called "self.all_products"
-            df = pd.DataFrame(products, columns=["ID", "name", "amount", "price in €","€ per kg", "reduced price", "bio label", "category", "location"])
+            ## creates a Pandas dataframe out of all the gathered products and stores 
+            ## it in the list variable called "self.all_products"
+            df = pd.DataFrame(products, columns=["date", 
+                                                 "store_ID", 
+                                                 "product_ID", 
+                                                 "product_name", 
+                                                 "has_bio_label", 
+                                                 "category_ID", 
+                                                 "listed_price", 
+                                                 "listed_amount", 
+                                                 "is_on_offer"])
             df.fillna(0)
             df.set_index("ID")
             self.all_products[category] = df
@@ -373,7 +393,8 @@ class Scraper:
 
     def save_as_csv_by_category(self):
         """
-        creates csv files for each category listed in the websites.json file out of all the products saved in the self.all_products variable.
+        creates csv files for each category listed in the websites.json file out of
+        all the products saved in the self.all_products variable.
         """
         self.parent.setup_data_storage()
         self.parent.logger.info("creating csv files...")
@@ -389,7 +410,7 @@ class Scraper:
 
     def save_as_single_csv(self):
         """
-        creates a csv file out of all the products saved in the self.all_products variable based on the 
+        creates a single csv file out of all the products saved in the self.all_products variable.
         """
         self.parent.setup_data_storage()
         self.parent.logger.info("creating csv file...")
@@ -402,8 +423,12 @@ class Scraper:
 
 
     def write_to_database(self):
-        pass 
-        self.all_products
+        """
+        writes all products in the the self.all_products variable to the DailyData table in the database.
+        """
+        with SessionLocal() as session:
+            session.bulk_insert_mappings(DailyData, self.all_products)
+            session.commit()
 
 
 if __name__ == "__main__":
