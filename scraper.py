@@ -37,7 +37,7 @@ class Application:
         self.start = time.time()
         self.http_calls = 0 ## variable for the Scraper class to track the amount of http requests sent, which will be documented in the logs file
         self.total_items = 0 ## variable for the Scraper class to track the amount of products scraped, which will be documented in the logs file
-        self.today = datetime.now().strftime('%Y%m%d')
+        self.today = datetime.now().strftime('%Y-%m-%d')
         self.setup_logger()
         self.store_locations = self.setup_locations()
         self.scrapers = self.setup_scrapers()
@@ -459,9 +459,18 @@ class Scraper:
         """
         writes all products in the the self.all_products variable to the DailyData table in the database.
         """
-        with SessionLocal() as session:
-            session.bulk_insert_mappings(DailyData, self.all_products)
+        self.parent.setup_data_storage()
+        self.parent.logger.info("writing to DailyData table in database...")
+        session = SessionLocal()
+        dataframe = pd.concat(self.all_products.values())
+        try:
+            session.bulk_insert_mappings(DailyData, dataframe)
             session.commit()
+        except Exception as e:
+            self.parent.logger.error(f"an error ocurred while writing to the database: {e}")
+            session.rollback()
+        finally:
+            session.close()
 
 
 if __name__ == "__main__":
