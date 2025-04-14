@@ -37,7 +37,7 @@ class Application:
         self.start = time.time()
         self.http_calls = 0 ## variable for the Scraper class to track the amount of http requests sent, which will be documented in the logs file
         self.total_items = 0 ## variable for the Scraper class to track the amount of products scraped, which will be documented in the logs file
-        self.today = datetime.now().strftime('%Y-%m-%d')
+        self.today = datetime.now().date()
         self.setup_logger()
         self.store_locations = self.setup_locations()
         self.scrapers = self.setup_scrapers()
@@ -314,7 +314,7 @@ class Scraper:
                         with open(f"workbench/soup_html_{self.parent.today}.html", "w") as file:
                             file.write(soup.prettify())
 
-                    ## this will only run once since the loop exits after one round unless a last page higher than 1 is found
+                    ## this will only run once unless a last page higher than 1 is found
                     if page == 1:
                         last_page = self.check_pagination(soup)
 
@@ -353,8 +353,7 @@ class Scraper:
                             listed_price = listed_price.text
                             listed_price = float(listed_price.replace("€", "").replace(",",".").strip())
                         
-                        ## gets the listed amount of the product 
-                        ## gets cleaned up through regular expressions later on after it was used as reference for the price_per_amount data point
+                        ## gets the listed amount of the product and its unit measurement
                         listed_amount = item.find("div", class_="productGrammage search-service-productGrammage")
                         listed_amount = listed_amount.text if listed_amount else "1 Stück"
                         listed_amount, listed_unit = self.parse_amount(listed_amount)                        
@@ -364,17 +363,17 @@ class Scraper:
                         biolabel = True if biolabel else False
 
                         ## appends all data points of the product to the self.products variable to construct a table of products
-                        products.append([self.parent.today,
-                                         self.location,
-                                         product_id, 
-                                         name, 
-                                         biolabel, 
-                                         category, 
-                                         listed_price, 
-                                         listed_amount, 
-                                         listed_unit, 
-                                         is_on_offer, 
-                                         ])
+                        products.append({"date": self.parent.today,
+                                         "store_id": self.location,
+                                         "product_id": product_id, 
+                                         "product_name": name, 
+                                         "has_bio_label": biolabel, 
+                                         "category_id": category, 
+                                         "listed_price": listed_price, 
+                                         "listed_amount": listed_amount, 
+                                         "listed_unit": listed_unit, 
+                                         "is_on_offer": is_on_offer, 
+                                         })
                     
                     self.parent.logger.info("successfully scraped page %s", page)
                     page += 1
