@@ -12,7 +12,7 @@ from fake_useragent import UserAgent
 from datetime import datetime
 from bs4 import BeautifulSoup
 from requests.exceptions import SSLError, RequestException
-from models import DailyData
+from models import Categories, Stores, DailyData
 from database_engine import SessionLocal
 
 def main():
@@ -21,7 +21,7 @@ def main():
         scraper.scrape()
         scraper.save_as_csv_by_category()
         scraper.save_as_single_csv()
-       ## scraper.write_to_database()
+        scraper.write_to_database()
     application.stop_program()
 
 
@@ -90,7 +90,7 @@ class Application:
                 self.logger.info("creating database")
                 database_file.touch()
             
-            self.today_data_path = Path("data", self.today)
+            self.today_data_path = Path("data", self.today.isoformat())
             if not self.today_data_path.exists():
                 self.logger.info("creating data folder for today")
                 os.makedirs(self.today_data_path, exist_ok=True)
@@ -403,18 +403,10 @@ class Scraper:
             
             ## creates a Pandas dataframe out of all the gathered products and stores 
             ## it in the list variable called "self.all_products"
-            df = pd.DataFrame(products, columns=["date", 
-                                                 "store_ID", 
-                                                 "product_ID", 
-                                                 "product_name", 
-                                                 "has_bio_label", 
-                                                 "category_ID", 
-                                                 "listed_price", 
-                                                 "listed_amount", 
-                                                 "listed_unit",
-                                                 "is_on_offer"])
+            df = pd.DataFrame(products)
             df.fillna(0)
-            df.set_index("product_ID")
+            df.set_index("product_id")
+            df.drop_duplicates(subset="product_id", inplace=True)
             self.all_products[category] = df
             
             page -= 1
@@ -456,18 +448,37 @@ class Scraper:
 
     def write_to_database(self):
         """
-        writes all products in the the self.all_products variable to the DailyData table in the database.
+        writes all products in the the self.all_products variable to the DailyData table in 
+        the database. Cleans up the data before insertion to be in line with the database ORM schema.
         """
         self.parent.setup_data_storage()
         self.parent.logger.info("writing to DailyData table in database...")
-        session = SessionLocal()
         dataframe = pd.concat(self.all_products.values())
+        dataframe.drop_duplicates(subset="product_id", inplace=True)
+        data = dataframe.to_dict(orient="records")
+
+        session = SessionLocal()
+
+        category_query = session.query(Categories).all()
+        category_mapping = {category.category_name: category.category_id for category in category_query}
+        for product in data:
+            category = product["category_id"]
+            if category in category_mapping:
+                product["category_id"] = category_mapping[category]
+
+        store_query = session.query(Stores).all()
+        store_mapping = {store.store_name: store.store_id for store in store_query}
+        for product in data:
+            store = product["store_id"]
+            if store in store_mapping:
+                product["store_id"] = store_mapping[store]
+
         try:
-            session.bulk_insert_mappings(DailyData, dataframe)
+            session.bulk_insert_mappings(DailyData, data)
             session.commit()
         except Exception as e:
-            self.parent.logger.error(f"an error ocurred while writing to the database: {e}")
             session.rollback()
+            self.parent.logger.error(f"an error ocurred while writing to the database: {e}")
         finally:
             session.close()
 
