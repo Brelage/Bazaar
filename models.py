@@ -78,10 +78,10 @@ class ProductObservations(Base):
 class DailyStatistics(Base):
     __tablename__ = "daily_statistics"
 
-    date = Column(Date, primary_key=True, index=True)
+    date = Column(Date, index=True)
     store_id = Column(Integer, ForeignKey("stores.store_id"), primary_key=True, index=True)
 
-    mean = Column(DECIMAL(10, 4))
-    median = Column(DECIMAL(10, 4))
+    price_mean = Column(DECIMAL(10, 4))
+    price_median = Column(DECIMAL(10, 4))
     amount_bio_products = Column(Integer)
     amount_reduced_products = Column(Integer)
