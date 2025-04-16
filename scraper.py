@@ -92,7 +92,7 @@ class Application:
                 self.logger.info("creating database")
                 database_file.touch()
             
-            self.today_data_path = Path("data", self.today.isoformat())
+            self.today_data_path = Path("data", "CSVs", self.today.isoformat())
             if not self.today_data_path.exists():
                 self.logger.info("creating data folder for today")
                 os.makedirs(self.today_data_path, exist_ok=True)
