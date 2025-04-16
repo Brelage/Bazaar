@@ -19,8 +19,8 @@ def main():
     application = Application()
     for scraper in application.scrapers:
         scraper.scrape()
-        scraper.save_as_csv_by_category()
-        scraper.save_as_single_csv()
+        # scraper.save_as_csv_by_category() # uncomment this line for CSV creation
+        # scraper.save_as_single_csv() # uncomment this line for CSV creation
         scraper.write_to_database()
     application.stop_program()
 
@@ -32,6 +32,7 @@ class Application:
     creates the environment needed for the Scraper class to work.
     creates the instances of the Scraper classes that scrape the webiste they are assigned to.
     """
+    
     def __init__(self):
         self.startprocess = time.process_time()
         self.start = time.time()
@@ -46,7 +47,7 @@ class Application:
     def setup_logger(self):
         """
         creates a logger for monitoring both in the terminal and for reference in 
-        a "logs" folder in a subfolder named after the current date
+        a "logs" folder in a subfolder named after the current date.
         """
         
         logs_path = os.path.join("logs", "scraper")
@@ -79,6 +80,7 @@ class Application:
         checks for a "data" folder, a database.db file, and a subfolder named after
         the current date into which the scraped data will be saved, and creates them if they do not exist already.
         """
+
         if sqlite == True:
             data_path = Path("data")
             if not data_path.exists():
@@ -102,6 +104,7 @@ class Application:
         gets all key-value pairs in the store_locations.json file, which includes the address of
         a store and the session cookie to load the store-specific data on the website.
         """
+
         try:
             with open("store_locations.json", "r") as file:
                 store_locations = json.load(file).get("locations", None)
@@ -122,6 +125,7 @@ class Application:
         """
         creates instances of the Scraper class based on the amount of URLs in the websites.json file.
         """
+
         with open ("websites.json", "r") as file:
             try:
                 websites = json.load(file).get("websites")
@@ -142,6 +146,7 @@ class Application:
         logs the amount of http calls made, the total amount of items found, the total runtime, and total CPU runtime. 
         Exits the program.
         """
+
         self.end = time.time()
         self.endprocess = time.process_time()
         if success:
@@ -199,6 +204,7 @@ class Scraper:
         creates a session with headers (that lower chance of bot detection) and 
         cookies (that informs the REWE website which store's products to show) for the HTTP requests.
         """
+
         ua = UserAgent()
         headers = {
                 "User-Agent": ua.random,
@@ -229,6 +235,7 @@ class Scraper:
         output:
         either the last page of the website or 1 (meaning there is only one page)
         """
+
         lastpage = soup.find_all("button", class_="PostRequestGetFormButton paginationPage paginationPageLink")
         if lastpage:
             last_page = int(lastpage[-1].get_text(strip=True))
@@ -249,6 +256,7 @@ class Scraper:
         listed_amount: a float that only lists the amount of the product.
         listed_unit: a string that only lists the unit of the product.
         """
+
         amount_cleaned = re.sub(r"""[\"']|\(.*?\)""", "", amount).strip()
         amount_cleaned = re.sub(r"\s+", "", amount_cleaned)
         listed_amount = None
@@ -421,6 +429,7 @@ class Scraper:
         creates csv files for each category listed in the websites.json file out of
         all the products saved in the self.all_products variable.
         """
+
         self.parent.setup_data_storage()
         self.parent.logger.info("creating csv files...")
         
@@ -436,6 +445,7 @@ class Scraper:
         """
         creates a single csv file out of all the products saved in the self.all_products variable.
         """
+
         self.parent.setup_data_storage()
         self.parent.logger.info("creating csv file...")
 
@@ -451,7 +461,7 @@ class Scraper:
         writes all products in the the self.all_products variable to the DailyData table in 
         the database. Cleans up the data before insertion to be in line with the database ORM schema.
         """
-        self.parent.setup_data_storage()
+
         self.parent.logger.info("writing to DailyData table in database...")
         dataframe = pd.concat(self.all_products.values())
         dataframe.drop_duplicates(subset="product_id", inplace=True)
