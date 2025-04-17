@@ -5,7 +5,7 @@ import logging
 import pandas as pd
 from datetime import datetime
 from database_engine import SessionLocal
-from models import DailyStatistics, DailyData, Categories, Stores
+from models import DailyStatistics, DailyData, CategoryStatistics
 
 
 
@@ -23,8 +23,8 @@ def main():
 
 class Handler:
     def __init__(self):
-        self.daily_data = self.load_daily_data()
         self.setup_logger()
+        self.daily_data = self.load_daily_data()
     
 
     def setup_logger(self):
@@ -32,12 +32,14 @@ class Handler:
         creates a logger for monitoring both in the terminal and for reference in 
         a "logs" folder in a subfolder named after the current date.
         """
-        
+
+        self.end = time.time()
+        self.endprocess = time.process_time()
         logs_path = os.path.join("logs", "DailyData_handler")
         os.makedirs(logs_path, exist_ok=True)
         
         self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.ERROR)  
+        self.logger.setLevel(logging.INFO)  
 
         if not self.logger.handlers:
             formatter = logging.Formatter(fmt="%(asctime)s: %(message)s", datefmt="%Y.%m.%d %H:%M:%S")
@@ -60,19 +62,21 @@ class Handler:
 
     def load_daily_data(self):
         """
-        Creates a nested dictionary where the first layer are all unique dates, the second layer are all unique stores listed in 
-        the DailyData table and the values are pandas dataframes containing all products with the corresponding date and store.
+        Creates a nested dictionary where the first layer are all unique dateslisted in the DailyData table, the second
+        layer are all unique stores listed in the DailyData table and the values are pandas dataframes containing 
+        all products with the corresponding date and store. 
         This allows for distinct iteration over all datasets saved in the self.daily_data variable.
         """
 
+        self.logger.info("loading data.")
         with SessionLocal() as session:
-            # Get all unique dates and stores
+            # Get all unique dates and stores found in the DailyData table
             dates = session.query(DailyData.date).distinct().all()
             date_values = [d[0] for d in dates]
             stores = session.query(DailyData.store_id).distinct().all()
             store_values = [s[0] for s in stores]
             
-            # Build nested dictionary
+            # Build nested dictionary of datasets
             daily_data = {}
             for date in date_values:
                 daily_data[date] = {}
@@ -88,33 +92,106 @@ class Handler:
         return daily_data
         
 
-    def create_daily_statistics(self):
+    def create_daily_statistics(self, category=None):
         """
         calculates a set of statistical data points and
         inserts them into the DailyStatistics table in the database.
         """
 
+        self.logger.info("calculating daily statistics.")
         session = SessionLocal()
 
         for date, store_subset in self.daily_data.items():
             for store, df in store_subset.items():
                 
-                price_mean = (df["listed_price"].mean())
-                price_median = (df["listed_price"].median())
-                amount_bio_products = (df["has_bio_label"].count())
-                amount_reduced_products = (df["is_on_offer"].count())
+                if category:
+                    df = df[df["category_id"]== category]
+
+                price_mean = df["listed_price"].mean()
+                price_median = df["listed_price"].median()
+                price_skewness = df["listed_price"].skew()
+                price_standard_deviation = df["listed_price"].std()
+                price_variance = df["listed_price"].var()
+                price_range = df["listed_price"].max() - df["listed_price"].min()
+                price_quartile_1 = df["listed_price"].quantile(0.25)
+                price_quartile_3 = df["listed_price"].quantile(0.75)
+                IQR = price_quartile_3 - price_quartile_1
+
+                amount_total_products = len(df)
+                amount_bio_products = (df["has_bio_label"]== 1).sum()
+                amount_reduced_products = (df["is_on_offer"]== 1).sum()
+                percentage_reduced_products = ((amount_reduced_products / amount_total_products) * 100)
+
+                if amount_bio_products != 0:
+                    percentage_bio_products = ((amount_bio_products / amount_total_products) * 100)
                 
-                daily_statistics = DailyStatistics(
-                    date= date,
-                    store_id = store,
-                    price_mean = price_mean,
-                    price_median = price_median,
-                    amount_bio_products = int(amount_bio_products),
-                    amount_reduced_products = int(amount_reduced_products)
-                )
+                if category and amount_bio_products != 0:
+                    green_premium = ((df.loc[df["has_bio_label"]== 0, "listed_price"]).median()) - ((df.loc[df["has_bio_label"]== 1, "listed_price"]).median())
+                    average_savings = ((df.loc[df["is_on_offer"]== 0, "listed_price"]).median()) - ((df.loc[df["is_on_offer"]== 1, "listed_price"]).median())
+
+                if not category:
+                    daily_statistics = DailyStatistics(
+                        date= date,
+                        store_id = store,
+    
+                        price_mean = round(price_mean, 4),
+                        price_median = round(price_median, 4),
+                        price_skewness = round(price_skewness, 3),
+                        price_standard_deviation = round(price_standard_deviation, 4),
+                        price_variance = round(price_variance, 4),
+                        price_range = round(price_range, 4),
+                        price_quartile_1 = round(price_quartile_1, 4),
+                        price_quartile_3 = round(price_quartile_3, 4),
+                        IQR = round(IQR, 4),
+
+                        amount_total_products = int(amount_total_products),
+                        amount_bio_products = int(amount_bio_products),
+                        amount_reduced_products = int(amount_reduced_products),
+                        percentage_bio_products = round(percentage_bio_products, 4),
+                        percentage_reduced_products = round(percentage_reduced_products, 4),
+                    )
+                    
+                    self.logger.info("inserting daily statistics into database.")
+                    session.add(daily_statistics)
+                    session.commit()
                 
-                session.add(daily_statistics)
-                session.commit()
+                    # this extracts all categories listed in the dataset and recursively creates statistics for each category
+                    category_datapoints = df["category_id"].unique().tolist()
+                    for category_key in category_datapoints:
+                        self.create_daily_statistics(category=category_key)
+                
+                else:
+                    pass
+
+                if category:
+                    category_statistics = CategoryStatistics(
+                        date= date,
+                        store_id = store,
+                        category_id= category,
+
+                        price_mean = round(price_mean, 4),
+                        price_median = round(price_median, 4),
+                        price_skewness = round(price_skewness, 3),
+                        price_standard_deviation = round(price_standard_deviation, 4),
+                        price_variance = round(price_variance, 4),
+                        price_range = round(price_range, 4),
+                        price_quartile_1 = round(price_quartile_1, 4),
+                        price_quartile_3 = round(price_quartile_3, 4),
+                        IQR = round(IQR, 4),
+
+                        amount_total_products = int(amount_total_products),
+                        amount_bio_products = int(amount_bio_products),
+                        amount_reduced_products = int(amount_reduced_products),
+                        percentage_bio_products = round(percentage_bio_products, 4),
+                        percentage_reduced_products = round(percentage_reduced_products, 4),
+
+                        green_premium = round(green_premium, 4),
+                        average_savings = round(average_savings, 4)
+                    )
+
+                    self.logger.info("inserting category statistics into database.")
+                    session.add(category_statistics)
+                    session.commit()
 
 
 
@@ -123,6 +200,8 @@ class Handler:
         if product_id in Observations.is_available == True but not in dataset:
             in Observations: set is_available bool to False
         """
+
+        self.logger.info("comparing availability with existing products.")
         pass
 
 
@@ -133,6 +212,8 @@ class Handler:
             new ProductObservation row
             drop row from dataset
         """
+
+        self.logger.info("checking for new products in dataset.")
         pass
 
 
@@ -144,16 +225,45 @@ class Handler:
             drop row from dataset            
         """
 
+        self.logger.info("checking for changes between products in dataset and ProductObservations.")
+        pass
 
-    def empty_DailyData():
+
+    def empty_DailyData(self):
+        """
+        deletes all rows from the DailyData table after dispersing relevant data to the other tables. 
+        """
+
+        self.logger.info("removing dataset from DailyData table.")
         with SessionLocal() as session:
             session.query(DailyData).delete()
             session.commit()
 
 
-    def stop_program(self):
-        pass
+    def stop_program(self, success=True):
+            """
+            logs total runtime and total CPU runtime. 
+            Exits the program.
+            """
 
+            self.logger.info("stopping program.")
+            self.end = time.time()
+            self.endprocess = time.process_time()
+            if success:
+                self.logger.info(f"""
+                    \nFINISHED DISPERSING DATA FROM DAILYDATA TABLE.
+                    \nCHECK VOLUME FOR SCRAPED DATA.
+                    \nTOTAL RUNTIME: {int((self.end - self.start) // 60)} minutes and {int((self.end - self.start) % 60)} seconds (precice: {round(self.end - self.start, 4)} seconds)
+                    \nTOTAL CPU RUNTIME: {round(self.endprocess - self.startprocess, 2)} seconds
+                    """)
+            else: 
+                self.logger.error(f"""
+                    \nDISPERSING DATA FROM DAILYDATA TABLE UNSUCCESSFUL.
+                    \nCHECK LOGS FOR ERROR CODES.
+                    \nTOTAL RUNTIME: {int((self.end - self.start) // 60)} minutes and {int((self.end - self.start) % 60)} seconds (precice: {round(self.end - self.start, 4)} seconds)
+                    \nTOTAL CPU RUNTIME: {round(self.endprocess - self.startprocess, 2)} seconds
+                    """)
+            sys.exit(0)
 
 
 if __name__ == "__main__":
