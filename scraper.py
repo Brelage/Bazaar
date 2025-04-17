@@ -150,7 +150,7 @@ class Application:
         self.endprocess = time.process_time()
         if success:
             self.logger.info(f"""
-                \nFINISHED SCRAPING
+                \nFINISHED SCRAPING.
                 \nCHECK VOLUME FOR SCRAPED DATA.
                 \nTOTAL CALLS MADE: {self.http_calls}
                 \nTOTAL ITEMS FOUND: {self.total_items}
@@ -158,7 +158,7 @@ class Application:
                 \nTOTAL CPU RUNTIME: {round(self.endprocess - self.startprocess, 2)} seconds
                 """)
         else: 
-            self.logger.info(f"""
+            self.logger.error(f"""
                 \nSCRAPING UNSUCCESSFUL.
                 \nCHECK LOGS FOR ERROR CODES.
                 \nTOTAL CALLS MADE: {self.http_calls}
