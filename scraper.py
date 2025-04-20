@@ -74,13 +74,13 @@ class Application:
             self.logger.addHandler(stream_handler)
 
 
-    def setup_data_storage(self, sqlite=True):
+    def setup_data_storage(self, local_storage=True):
         """
         checks for a "data" folder, a database.db file, and a subfolder named after
         the current date into which the scraped data will be saved, and creates them if they do not exist already.
         """
 
-        if sqlite == True:
+        if local_storage == True:
             data_path = Path("data")
             if not data_path.exists():
                 self.logger.info("creating directory for data")
@@ -294,8 +294,7 @@ class Scraper:
         scrapes the products of every website listed in the websites.json file
 
         output:
-        a dictionary of pandas dataframes containing the following data points for every product:
-        product ID, name, amount, price, price per kg, whether it has a reduced price, whether it has a bio-label, the category it is in
+        a dictionary of pandas dataframes structured after the DailyData ORM in the models.py script
         """
 
         for website in self.websites:
