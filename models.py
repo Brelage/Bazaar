@@ -5,7 +5,8 @@ from sqlalchemy import (
     DECIMAL,
     Boolean,
     Date,
-    ForeignKey
+    ForeignKey,
+    PrimaryKeyConstraint
 )
 from sqlalchemy.orm import declarative_base, relationship
 
@@ -78,8 +79,8 @@ class ProductObservations(Base):
 class DailyStatistics(Base):
     __tablename__ = "daily_statistics"
 
-    date = Column(Date, index=True)
-    store_id = Column(Integer, ForeignKey("stores.store_id"), primary_key=True, index=True)
+    date = Column(Date, index=True, primary_key=True)
+    store_id = Column(Integer, ForeignKey("stores.store_id"), index=True, primary_key=True)
 
     price_mean = Column(DECIMAL(10, 4))
     price_median = Column(DECIMAL(10, 4))
@@ -99,10 +100,13 @@ class DailyStatistics(Base):
     
 class CategoryStatistics(Base):
     __tablename__ = "category_statistics"
-    
-    date = Column(Date, index=True)
+    __table_args__ = (
+        PrimaryKeyConstraint('date', 'store_id', 'category_id'),
+    )
+
+    date = Column(Date, primary_key=True, index=True)
     store_id = Column(Integer, ForeignKey("stores.store_id"), primary_key=True, index=True)
-    category_id = Column(ForeignKey("categories.category_id"), nullable=False, index=True)
+    category_id = Column(Integer, ForeignKey("categories.category_id"), primary_key=True, nullable=False, index=True)
 
     price_mean = Column(DECIMAL(10, 4))
     price_median = Column(DECIMAL(10, 4))
