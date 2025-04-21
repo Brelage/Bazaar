@@ -71,10 +71,8 @@ class Handler:
         self.logger.info("loading data.")
         with SessionLocal() as session:
             # Get all unique dates and stores found in the DailyData table
-            dates = session.query(DailyData.date).distinct().all()
-            date_values = [d[0] for d in dates]
-            stores = session.query(DailyData.store_id).distinct().all()
-            store_values = [s[0] for s in stores]
+            date_values = [d[0] for d in (session.query(DailyData.date).distinct().all())]
+            store_values = [s[0] for s in (session.query(DailyData.store_id).distinct().all())]
             
             # Build nested dictionary of datasets
             daily_data = {}
@@ -92,107 +90,132 @@ class Handler:
         return daily_data
         
 
-    def create_daily_statistics(self, category=None):
+    def create_daily_statistics(self):
         """
-        calculates a set of statistical data points and
-        inserts them into the DailyStatistics table in the database.
+        creates the iterative logic for calculating and inserting both the
+        daily statistics and the category statistics by creating a data subset for every 
+        unique combination of date and store and passing that data subset to
+        the calculate_statistics function.
         """
 
-        self.logger.info("calculating daily statistics.")
         session = SessionLocal()
 
         for date, store_subset in self.daily_data.items():
             for store, df in store_subset.items():
-                
-                if category:
-                    df = df[df["category_id"]== category]
+                self.calculate_statistics(df, date, store, session)
 
-                price_mean = df["listed_price"].mean()
-                price_median = df["listed_price"].median()
-                price_skewness = df["listed_price"].skew()
-                price_standard_deviation = df["listed_price"].std()
-                price_variance = df["listed_price"].var()
-                price_range = df["listed_price"].max() - df["listed_price"].min()
-                price_quartile_1 = df["listed_price"].quantile(0.25)
-                price_quartile_3 = df["listed_price"].quantile(0.75)
-                IQR = price_quartile_3 - price_quartile_1
 
-                amount_total_products = len(df)
-                amount_bio_products = (df["has_bio_label"]== 1).sum()
-                amount_reduced_products = (df["is_on_offer"]== 1).sum()
-                percentage_reduced_products = ((amount_reduced_products / amount_total_products) * 100)
+    def calculate_statistics(self, df, date, store, session, category=None):
+        """
+        calculates a set of statistical data points and
+        inserts them into the DailyStatistics table in the database.
 
-                if amount_bio_products != 0:
-                    percentage_bio_products = ((amount_bio_products / amount_total_products) * 100)
-                
-                if category and amount_bio_products != 0:
-                    green_premium = ((df.loc[df["has_bio_label"]== 0, "listed_price"]).median()) - ((df.loc[df["has_bio_label"]== 1, "listed_price"]).median())
-                    average_savings = ((df.loc[df["is_on_offer"]== 0, "listed_price"]).median()) - ((df.loc[df["is_on_offer"]== 1, "listed_price"]).median())
+        Args:
+        df: the data subset created by the create_daily_statistics function.
+        date: a date listed in the DailyData database.
+        store: a store listed in the DailyData database.
+        session: a session object created by the create_daily_statistics function to interact with the database.
+        category: a category listed in the DailyData database. Default is set to None for calculation on the whole dataset.
+        
+        Output: 
+        database entries both in the DailyStatistics table and in the CategoryStatistics table.
+        """
+        
+        # this reduces the dataset to only the rows with the fitting category if a category is passed into the method
+        if category != None:
+            df = df[df["category_id"]== category]
+            self.logger.info(f"calculating category statistics. date: {date}. category_id: {category}.")
+        else:
+            self.logger.info(f"calculating daily statistics. date: {date}.")
 
-                if not category:
-                    daily_statistics = DailyStatistics(
-                        date= date,
-                        store_id = store,
-    
-                        price_mean = round(price_mean, 4),
-                        price_median = round(price_median, 4),
-                        price_skewness = round(price_skewness, 3),
-                        price_standard_deviation = round(price_standard_deviation, 4),
-                        price_variance = round(price_variance, 4),
-                        price_range = round(price_range, 4),
-                        price_quartile_1 = round(price_quartile_1, 4),
-                        price_quartile_3 = round(price_quartile_3, 4),
-                        IQR = round(IQR, 4),
 
-                        amount_total_products = int(amount_total_products),
-                        amount_bio_products = int(amount_bio_products),
-                        amount_reduced_products = int(amount_reduced_products),
-                        percentage_bio_products = round(percentage_bio_products, 4),
-                        percentage_reduced_products = round(percentage_reduced_products, 4),
-                    )
-                    
-                    self.logger.info("inserting daily statistics into database.")
-                    session.add(daily_statistics)
-                    session.commit()
-                
-                    # this extracts all categories listed in the dataset and recursively creates statistics for each category
-                    category_datapoints = df["category_id"].unique().tolist()
-                    for category_key in category_datapoints:
-                        self.create_daily_statistics(category=category_key)
-                
-                else:
-                    pass
+        price_mean = df["listed_price"].mean()
+        price_median = df["listed_price"].median()
+        price_skewness = df["listed_price"].skew()
+        price_standard_deviation = df["listed_price"].std()
+        price_variance = df["listed_price"].var()
+        price_range = df["listed_price"].max() - df["listed_price"].min()
+        price_quartile_1 = df["listed_price"].quantile(0.25)
+        price_quartile_3 = df["listed_price"].quantile(0.75)
+        IQR = price_quartile_3 - price_quartile_1
 
-                if category:
-                    category_statistics = CategoryStatistics(
-                        date= date,
-                        store_id = store,
-                        category_id= category,
+        amount_total_products = len(df)
+        amount_bio_products = (df["has_bio_label"]== 1).sum()
+        amount_reduced_products = (df["is_on_offer"]== 1).sum()
+        percentage_reduced_products = ((amount_reduced_products / amount_total_products) * 100) if amount_reduced_products else 0
+        percentage_bio_products = ((amount_bio_products / amount_total_products) * 100) if amount_bio_products else 0
 
-                        price_mean = round(price_mean, 4),
-                        price_median = round(price_median, 4),
-                        price_skewness = round(price_skewness, 3),
-                        price_standard_deviation = round(price_standard_deviation, 4),
-                        price_variance = round(price_variance, 4),
-                        price_range = round(price_range, 4),
-                        price_quartile_1 = round(price_quartile_1, 4),
-                        price_quartile_3 = round(price_quartile_3, 4),
-                        IQR = round(IQR, 4),
+        if category != None:
+            green_premium = (((df.loc[df["has_bio_label"]== 0, "listed_price"]).median()) - ((df.loc[df["has_bio_label"]== 1, "listed_price"]).median())) if amount_bio_products else 0
+        
+        if category != None:
+            average_savings = (((df.loc[df["is_on_offer"]== 0, "listed_price"]).median()) - ((df.loc[df["is_on_offer"]== 1, "listed_price"]).median())) if amount_reduced_products else 0
 
-                        amount_total_products = int(amount_total_products),
-                        amount_bio_products = int(amount_bio_products),
-                        amount_reduced_products = int(amount_reduced_products),
-                        percentage_bio_products = round(percentage_bio_products, 4),
-                        percentage_reduced_products = round(percentage_reduced_products, 4),
 
-                        green_premium = round(green_premium, 4),
-                        average_savings = round(average_savings, 4)
-                    )
+        if category == None:
+            daily_statistics = DailyStatistics(
+                date= date,
+                store_id = store,
 
-                    self.logger.info("inserting category statistics into database.")
-                    session.add(category_statistics)
-                    session.commit()
+                price_mean = round(price_mean, 4),
+                price_median = round(price_median, 4),
+                price_skewness = round(price_skewness, 3),
+                price_standard_deviation = round(price_standard_deviation, 4),
+                price_variance = round(price_variance, 4),
+                price_range = round(price_range, 4),
+                price_quartile_1 = round(price_quartile_1, 4),
+                price_quartile_3 = round(price_quartile_3, 4),
+                IQR = round(IQR, 4),
 
+                amount_total_products = int(amount_total_products),
+                amount_bio_products = int(amount_bio_products),
+                amount_reduced_products = int(amount_reduced_products),
+                percentage_bio_products = round(percentage_bio_products, 4),
+                percentage_reduced_products = round(percentage_reduced_products, 4),
+            )
+            
+            self.logger.info("inserting daily statistics into database.\n")
+            session.add(daily_statistics)
+            session.commit()
+        
+        
+        else:
+            category_statistics = CategoryStatistics(
+                date= date,
+                store_id = store,
+                category_id= category,
+
+                price_mean = round(price_mean, 4),
+                price_median = round(price_median, 4),
+                price_skewness = round(price_skewness, 3),
+                price_standard_deviation = round(price_standard_deviation, 4),
+                price_variance = round(price_variance, 4),
+                price_range = round(price_range, 4),
+                price_quartile_1 = round(price_quartile_1, 4),
+                price_quartile_3 = round(price_quartile_3, 4),
+                IQR = round(IQR, 4),
+
+                amount_total_products = int(amount_total_products),
+                amount_bio_products = int(amount_bio_products),
+                amount_reduced_products = int(amount_reduced_products),
+                percentage_bio_products = round(percentage_bio_products, 4),
+                percentage_reduced_products = round(percentage_reduced_products, 4),
+
+                green_premium = round(green_premium, 4),
+                average_savings = round(average_savings, 4)
+            )
+
+            self.logger.info("inserting category statistics into database.\n")
+            session.add(category_statistics)
+            session.commit()
+
+        # this part extracts all categories listed in the dataset and recursively creates statistics for each category
+        # once the daily statistics and all category statistics are calculated and inserted, the next dataset is iterated upon
+        if category == None:
+            category_datapoints = df["category_id"].unique().tolist()
+            category_datapoints.sort()
+            for category_key in category_datapoints:
+                self.calculate_statistics(df, date, store, session, category=category_key)
 
 
     def check_availability(self):
