@@ -62,7 +62,7 @@ class Handler:
 
     def load_daily_data(self):
         """
-        Creates a nested dictionary where the first layer are all unique dateslisted in the DailyData table, the second
+        Creates a nested dictionary where the first layer are all unique dates listed in the DailyData table, the second
         layer are all unique stores listed in the DailyData table and the values are pandas dataframes containing 
         all products with the corresponding date and store. 
         This allows for distinct iteration over all datasets saved in the self.daily_data variable.
