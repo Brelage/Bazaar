@@ -129,12 +129,14 @@ class Handler:
             self.logger.info(f"calculating daily statistics. date: {date}.")
 
 
+        price_min = df["listed_price"].min()
+        price_max = df["listed_price"].max()
         price_mean = df["listed_price"].mean() ## average price
         price_median = df["listed_price"].median() ## middle price
         price_skewness = df["listed_price"].skew() ## asymmetry of the distribution of price points
         price_standard_deviation = df["listed_price"].std() ## how much values typically deviate from the mean
         price_variance = df["listed_price"].var() ## the square of the standard deviation
-        price_range = df["listed_price"].max() - df["listed_price"].min() ## difference between the lowest listed price and the highest
+        price_range = price_max - price_min ## difference between the lowest listed price and the highest
         price_quartile_1 = df["listed_price"].quantile(0.25)  ## the price of products at the 25th percentile (cheaper than 75% of the rest)
         price_quartile_3 = df["listed_price"].quantile(0.75) ## the price of products at the 75th percentile (more expensive than 75% of the rest)
         IQR = price_quartile_3 - price_quartile_1 ## difference between the 75th and 25th percentiles
@@ -163,6 +165,8 @@ class Handler:
                 date= date,
                 store_id = store,
 
+                price_min = round(price_min, 4),
+                price_max = round(price_max, 4),
                 price_mean = round(price_mean, 4),
                 price_median = round(price_median, 4),
                 price_skewness = round(price_skewness, 3),
@@ -191,6 +195,8 @@ class Handler:
                 store_id = store,
                 category_id= category,
 
+                price_min = round(price_min, 4),
+                price_max = round(price_max, 4),
                 price_mean = round(price_mean, 4),
                 price_median = round(price_median, 4),
                 price_skewness = round(price_skewness, 3),

@@ -82,6 +82,8 @@ class DailyStatistics(Base):
     date = Column(Date, index=True, primary_key=True)
     store_id = Column(Integer, ForeignKey("stores.store_id"), index=True, primary_key=True)
 
+    price_min = Column(DECIMAL(10, 4))
+    price_max = Column(DECIMAL(10, 4))
     price_mean = Column(DECIMAL(10, 4))
     price_median = Column(DECIMAL(10, 4))
     price_skewness = Column(DECIMAL(5, 3))
@@ -90,7 +92,7 @@ class DailyStatistics(Base):
     price_range = Column(DECIMAL(10, 4))
     price_quartile_1 = Column(DECIMAL(10, 4))
     price_quartile_3 = Column(DECIMAL(10, 4))
-    IQR = Column(DECIMAL(10, 4)) # Inter-Quartile Range between Q1(25th) and Q3 (75th)
+    IQR = Column(DECIMAL(10, 4)) 
 
     amount_total_products = Column(Integer)
     amount_bio_products = Column(Integer)
@@ -108,6 +110,8 @@ class CategoryStatistics(Base):
     store_id = Column(Integer, ForeignKey("stores.store_id"), primary_key=True, index=True)
     category_id = Column(Integer, ForeignKey("categories.category_id"), primary_key=True, nullable=False, index=True)
 
+    price_min = Column(DECIMAL(10, 4))
+    price_max = Column(DECIMAL(10, 4))
     price_mean = Column(DECIMAL(10, 4))
     price_median = Column(DECIMAL(10, 4))
     price_skewness = Column(DECIMAL(5, 3))
@@ -124,5 +128,5 @@ class CategoryStatistics(Base):
     percentage_bio_products = Column(DECIMAL(10, 4), nullable=True)
     percentage_reduced_products = Column(DECIMAL(10, 4))
     
-    green_premium = Column(DECIMAL(10, 4), nullable=True) ## how much more expensive is the mean bio product vs. the mean non-bio product
-    average_savings = Column(DECIMAL(10, 4)) ## how much cheaper are the products with an offer compared to the products without one
+    green_premium = Column(DECIMAL(10, 4), nullable=True) 
+    average_savings = Column(DECIMAL(10, 4))
