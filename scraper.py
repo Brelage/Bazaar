@@ -5,6 +5,7 @@ import re
 import sys
 import logging
 import cloudscraper
+import subprocess
 import pandas as pd
 from pathlib import Path
 from fake_useragent import UserAgent
@@ -484,6 +485,7 @@ class Scraper:
         try:
             session.bulk_insert_mappings(DailyData, data)
             session.commit()
+            subprocess.run(["python", "DailyData_handler.py"])
         except Exception as e:
             session.rollback()
             self.parent.logger.error(f"an error ocurred while writing to the database: {e}")
