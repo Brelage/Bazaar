@@ -6,7 +6,7 @@ import pandas as pd
 from datetime import datetime
 from database_engine import SessionLocal
 from models import DailyStatistics, DailyData, CategoryStatistics
-
+from sqlalchemy import update, inspect
 
 
 def main():
@@ -103,6 +103,7 @@ class Handler:
         for date, store_subset in self.daily_data.items():
             for store, df in store_subset.items():
                 self.calculate_statistics(df, date, store, session)
+        session.close()
 
 
     def calculate_statistics(self, df, date, store, session, category=None):
@@ -185,9 +186,7 @@ class Handler:
             )
             
             self.logger.info("inserting daily statistics into database.\n")
-            session.add(daily_statistics)
-            session.commit()
-        
+            self.upsert(session=session, instance=daily_statistics)
         
         else:
             category_statistics = CategoryStatistics(
@@ -218,8 +217,7 @@ class Handler:
             )
 
             self.logger.info("inserting category statistics into database.\n")
-            session.add(category_statistics)
-            session.commit()
+            self.upsert(session=session, instance=category_statistics)
 
         # this part extracts all categories listed in the dataset and recursively creates statistics for each category
         # once the daily statistics and all category statistics are calculated and inserted, the next dataset is iterated upon
@@ -228,6 +226,33 @@ class Handler:
             category_datapoints.sort()
             for category_key in category_datapoints:
                 self.calculate_statistics(df, date, store, session, category=category_key)
+
+
+    def upsert(self, session, instance):
+        """
+        upsert multiple rows into a given table with a composite primary key using a Session.
+
+        Args:
+        session: SQLAlchemy Session object
+        instance: SQLAlchemy ORM instance
+        """
+        model = type(instance)
+        primary_keys = [key.name for key in inspect(model).primary_key]
+        row = {c.name: getattr(instance, c.name) for c in model.__table__.columns}
+        key_fields = {key: row[key] for key in primary_keys}
+        update_fields = {key: value for key, value in row.items() if key not in primary_keys}
+
+        statement = (
+            update(model)
+            .where(*(getattr(model, key) == value for key, value in key_fields.items()))
+            .values(**update_fields)
+        )
+        result = session.execute(statement)
+        
+        if result.rowcount == 0:
+            session.add(instance)
+        
+        session.commit()
 
 
     def check_availability(self):
