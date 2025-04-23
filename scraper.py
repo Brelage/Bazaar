@@ -7,6 +7,7 @@ import logging
 import cloudscraper
 import subprocess
 import pandas as pd
+from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 from fake_useragent import UserAgent
 from datetime import datetime
@@ -60,8 +61,11 @@ class Application:
             formatter = logging.Formatter(fmt="%(asctime)s: %(message)s", datefmt="%Y.%m.%d %H:%M:%S")
             
             ## config for the .log file generated
-            log_file = os.path.join(logs_path, f"{datetime.now().strftime('%Y.%m.%d %H-%M-%S')}.log")
-            file_handler = logging.FileHandler(log_file)
+            file_handler = TimedRotatingFileHandler(
+            f"logs/scraper.log",
+            when="midnight",
+            backupCount=30
+            )
             file_handler.setFormatter(formatter)
             # uncomment the line below for more granular logging config 
             # file_handler.setLevel(logging.INFO)
