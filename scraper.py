@@ -6,6 +6,7 @@ import sys
 import logging
 import cloudscraper
 import subprocess
+import signal
 import pandas as pd
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
@@ -18,6 +19,8 @@ from database_engine import SessionLocal
 
 def main():
     application = Application()
+    signal.signal(signal.SIGTERM, Application.shutdown)
+    signal.signal(signal.SIGINT, Application.shutdown)
     for scraper in application.scrapers:
         scraper.scrape()
         # scraper.save_as_csv_by_category() # uncomment this line for CSV creation
@@ -173,6 +176,10 @@ class Application:
                 """)
         sys.exit(0)
 
+
+    def shutdown(self, signum, frame):
+        self.logger.info(f"Received signal {signum}, shutting down gracefully...")
+        self.stop_program(success=False)
 
 
 class Scraper:

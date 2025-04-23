@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import logging
+import signal
 import pandas as pd
 from logging.handlers import TimedRotatingFileHandler
 from datetime import datetime
@@ -12,13 +13,14 @@ from sqlalchemy import update, inspect
 
 def main():
     handler = Handler()
+    signal.signal(signal.SIGTERM, Handler.shutdown)
+    signal.signal(signal.SIGINT, Handler.shutdown)    
     handler.create_daily_statistics()
     #handler.check_availability()
     #handler.check_new_products()
     #handler.check_changes()
     #handler.empty_DailyData()
-    #handler.stop_program()
-    sys.exit(0)
+    handler.stop_program()
 
 
 
@@ -328,6 +330,11 @@ class Handler:
                     \nTOTAL CPU RUNTIME: {round(self.endprocess - self.startprocess, 2)} seconds
                     """)
             sys.exit(0)
+
+
+    def shutdown(self, signum, frame):
+        self.logger.info(f"Received signal {signum}, shutting down gracefully...")
+        self.stop_program(success=False)
 
 
 if __name__ == "__main__":
