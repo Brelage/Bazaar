@@ -65,7 +65,7 @@ class Application:
             
             ## config for the .log file generated
             file_handler = TimedRotatingFileHandler(
-            f"logs/scraper.log",
+            f"logs/scraper/scraper.log",
             when="midnight",
             backupCount=30
             )

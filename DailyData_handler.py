@@ -49,7 +49,7 @@ class Handler:
             
             ## config for the .log file generated
             file_handler = TimedRotatingFileHandler(
-            f"logs/DailyData_handler.log",
+            f"logs/DailyData_handler/DailyData_handler.log",
             when="midnight",
             backupCount=30
             )
