@@ -36,8 +36,8 @@ class Handler:
         a "logs" folder in a subfolder named after the current date.
         """
 
-        self.end = time.time()
-        self.endprocess = time.process_time()
+        self.start = time.time()
+        self.startprocess = time.process_time()
         logs_path = os.path.join("logs", "DailyData_handler")
         os.makedirs(logs_path, exist_ok=True)
         
@@ -307,29 +307,29 @@ class Handler:
 
 
     def stop_program(self, success=True):
-            """
-            logs total runtime and total CPU runtime. 
-            Exits the program.
-            """
+        """
+        logs total runtime and total CPU runtime. 
+        Exits the program.
+        """
 
-            self.logger.info("stopping program.")
-            self.end = time.time()
-            self.endprocess = time.process_time()
-            if success:
-                self.logger.info(f"""
-                    \nFINISHED DISPERSING DATA FROM DAILYDATA TABLE.
-                    \nCHECK VOLUME FOR SCRAPED DATA.
-                    \nTOTAL RUNTIME: {int((self.end - self.start) // 60)} minutes and {int((self.end - self.start) % 60)} seconds (precice: {round(self.end - self.start, 4)} seconds)
-                    \nTOTAL CPU RUNTIME: {round(self.endprocess - self.startprocess, 2)} seconds
-                    """)
-            else: 
-                self.logger.error(f"""
-                    \nDISPERSING DATA FROM DAILYDATA TABLE UNSUCCESSFUL.
-                    \nCHECK LOGS FOR ERROR CODES.
-                    \nTOTAL RUNTIME: {int((self.end - self.start) // 60)} minutes and {int((self.end - self.start) % 60)} seconds (precice: {round(self.end - self.start, 4)} seconds)
-                    \nTOTAL CPU RUNTIME: {round(self.endprocess - self.startprocess, 2)} seconds
-                    """)
-            sys.exit(0)
+        self.logger.info("stopping program.")
+        self.end = time.time()
+        self.endprocess = time.process_time()
+        if success:
+            self.logger.info(f"""
+                \nFINISHED DISPERSING DATA FROM DAILYDATA TABLE.
+                \nCHECK VOLUME FOR SCRAPED DATA.
+                \nTOTAL RUNTIME: {int((self.end - self.start) // 60)} minutes and {int((self.end - self.start) % 60)} seconds (precice: {round(self.end - self.start, 4)} seconds)
+                \nTOTAL CPU RUNTIME: {round(self.endprocess - self.startprocess, 2)} seconds
+                """)
+        else: 
+            self.logger.error(f"""
+                \nDISPERSING DATA FROM DAILYDATA TABLE UNSUCCESSFUL.
+                \nCHECK LOGS FOR ERROR CODES.
+                \nTOTAL RUNTIME: {int((self.end - self.start) // 60)} minutes and {int((self.end - self.start) % 60)} seconds (precice: {round(self.end - self.start, 4)} seconds)
+                \nTOTAL CPU RUNTIME: {round(self.endprocess - self.startprocess, 2)} seconds
+                """)
+        sys.exit(0)
 
 
     def shutdown(self, signum, frame):
