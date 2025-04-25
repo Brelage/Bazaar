@@ -1,21 +1,25 @@
-import os
-import time
 import json
-import re
-import sys
 import logging
-import cloudscraper
-import subprocess
+import os
+import re
 import signal
-import pandas as pd
+import subprocess
+import sys
+import time
+from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
-from fake_useragent import UserAgent
-from datetime import datetime
+
+import cloudscraper
+import pandas as pd
 from bs4 import BeautifulSoup
+from fake_useragent import UserAgent
 from requests.exceptions import SSLError, RequestException
+from sqlalchemy.exc import IntegrityError
+
+import db_utils
 from models import Categories, Stores, DailyData
-from database_engine import SessionLocal
+
 
 def main():
     application = Application()
@@ -27,6 +31,7 @@ def main():
         # scraper.save_as_single_csv() # uncomment this line for CSV creation
         scraper.write_to_database()
     application.stop_program()
+
 
 
 class Application:
@@ -103,7 +108,6 @@ class Application:
             if not self.today_data_path.exists():
                 self.logger.info("creating data folder for today")
                 os.makedirs(self.today_data_path, exist_ok=True)
-        
 
 
     def setup_locations(self):
@@ -472,36 +476,42 @@ class Scraper:
         the database. Cleans up the data before insertion to be in line with the database ORM schema.
         """
 
-        self.parent.logger.info("writing to DailyData table in database...")
+        self.parent.logger.info("preparing data for insertion into DailyData table in database...")
         dataframe = pd.concat(self.all_products.values())
         dataframe.drop_duplicates(subset="product_id", inplace=True)
         data = dataframe.to_dict(orient="records")
 
-        session = SessionLocal()
+        with db_utils.session_query() as session:
+            ## changes the categories from its names to the corresponding category_id
+            category_query = session.query(Categories).all()
+            category_mapping = {category.category_name: category.category_id for category in category_query}
+            for product in data:
+                category = product["category_id"]
+                if category in category_mapping:
+                    product["category_id"] = category_mapping[category]
 
-        category_query = session.query(Categories).all()
-        category_mapping = {category.category_name: category.category_id for category in category_query}
-        for product in data:
-            category = product["category_id"]
-            if category in category_mapping:
-                product["category_id"] = category_mapping[category]
+            ## changes the stores from its names to the corresponding store_id
+            store_query = session.query(Stores).all()
+            store_mapping = {store.store_name: store.store_id for store in store_query}
+            for product in data:
+                store = product["store_id"]
+                if store in store_mapping:
+                    product["store_id"] = store_mapping[store]
 
-        store_query = session.query(Stores).all()
-        store_mapping = {store.store_name: store.store_id for store in store_query}
-        for product in data:
-            store = product["store_id"]
-            if store in store_mapping:
-                product["store_id"] = store_mapping[store]
-
+        self.parent.logger.info("writing to DailyData table in database...")
         try:
-            session.bulk_insert_mappings(DailyData, data)
-            session.commit()
-            subprocess.run(["python", "DailyData_handler.py"])
-        except Exception as e:
-            session.rollback()
-            self.parent.logger.error(f"an error ocurred while writing to the database: {e}")
+            with db_utils.session_commit() as session:
+                session.bulk_insert_mappings(DailyData, data)
+
+        except IntegrityError:
+            with db_utils.session_commit() as session:
+                db_utils.bulk_upsert(DailyData, data)
+
         finally:
-            session.close()
+            try:
+                subprocess.run([sys.executable, "DailyData_handler.py"])
+            except Exception as e:
+                self.parent.logger.error(f"an error ocurred while creating statistical data: {e}")
 
 
 if __name__ == "__main__":

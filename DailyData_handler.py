@@ -5,16 +5,14 @@ import logging
 import signal
 import pandas as pd
 from logging.handlers import TimedRotatingFileHandler
-from datetime import datetime
-from database_engine import SessionLocal
 from models import DailyStatistics, DailyData, CategoryStatistics
-from sqlalchemy import update, inspect
+import db_utils
 
 
 def main():
     handler = Handler()
     signal.signal(signal.SIGTERM, Handler.shutdown)
-    signal.signal(signal.SIGINT, Handler.shutdown)    
+    signal.signal(signal.SIGINT, Handler.shutdown)
     handler.create_daily_statistics()
     #handler.check_availability()
     #handler.check_new_products()
@@ -75,11 +73,11 @@ class Handler:
         """
 
         self.logger.info("loading data.")
-        with SessionLocal() as session:
-            # Get all unique dates and stores found in the DailyData table
+        # Get all unique dates and stores found in the DailyData table
+        with db_utils.session_query() as session:
             date_values = [d[0] for d in (session.query(DailyData.date).distinct().all())]
             store_values = [s[0] for s in (session.query(DailyData.store_id).distinct().all())]
-            
+                
             # Build nested dictionary of datasets
             daily_data = {}
             for date in date_values:
@@ -104,15 +102,12 @@ class Handler:
         the calculate_statistics function.
         """
 
-        session = SessionLocal()
-
         for date, store_subset in self.daily_data.items():
             for store, df in store_subset.items():
-                self.calculate_statistics(df, date, store, session)
-        session.close()
+                self.calculate_statistics(df, date, store)
 
 
-    def calculate_statistics(self, df, date, store, session, category=None):
+    def calculate_statistics(self, df, date, store, category=None):
         """
         calculates a set of statistical data points and
         inserts them into the DailyStatistics table in the database.
@@ -168,62 +163,57 @@ class Handler:
 
 
         if category == None:
-            daily_statistics = DailyStatistics(
-                date= date,
-                store_id = store,
-
-                price_min = round(price_min, 4),
-                price_max = round(price_max, 4),
-                price_mean = round(price_mean, 4),
-                price_median = round(price_median, 4),
-                price_skewness = round(price_skewness, 3),
-                price_standard_deviation = round(price_standard_deviation, 4),
-                price_variance = round(price_variance, 4),
-                price_range = round(price_range, 4),
-                price_quartile_1 = round(price_quartile_1, 4),
-                price_quartile_3 = round(price_quartile_3, 4),
-                IQR = round(IQR, 4),
-
-                amount_total_products = int(amount_total_products),
-                amount_bio_products = int(amount_bio_products),
-                amount_reduced_products = int(amount_reduced_products),
-                percentage_bio_products = round(percentage_bio_products, 4),
-                percentage_reduced_products = round(percentage_reduced_products, 4),
-            )
+            daily_statistics = {
+                "date": date,
+                "store_id": store,
+                "price_min": round(price_min, 4),
+                "price_max": round(price_max, 4),
+                "price_mean": round(price_mean, 4),
+                "price_median": round(price_median, 4),
+                "price_skewness": round(price_skewness, 3),
+                "price_standard_deviation": round(price_standard_deviation, 4),
+                "price_variance": round(price_variance, 4),
+                "price_range": round(price_range, 4),
+                "price_quartile_1": round(price_quartile_1, 4),
+                "price_quartile_3": round(price_quartile_3, 4),
+                "IQR": round(IQR, 4),
+                "amount_total_products": int(amount_total_products),
+                "amount_bio_products": int(amount_bio_products),
+                "amount_reduced_products": int(amount_reduced_products),
+                "percentage_bio_products": round(percentage_bio_products, 4),
+                "percentage_reduced_products": round(percentage_reduced_products, 4),
+            }
             
             self.logger.info("inserting daily statistics into database.\n")
-            self.upsert(session=session, instance=daily_statistics)
+            db_utils.bulk_upsert(DailyStatistics, daily_statistics)
         
         else:
-            category_statistics = CategoryStatistics(
-                date= date,
-                store_id = store,
-                category_id= category,
-
-                price_min = round(price_min, 4),
-                price_max = round(price_max, 4),
-                price_mean = round(price_mean, 4),
-                price_median = round(price_median, 4),
-                price_skewness = round(price_skewness, 3),
-                price_standard_deviation = round(price_standard_deviation, 4),
-                price_variance = round(price_variance, 4),
-                price_range = round(price_range, 4),
-                price_quartile_1 = round(price_quartile_1, 4),
-                price_quartile_3 = round(price_quartile_3, 4),
-                IQR = round(IQR, 4),
-
-                amount_total_products = int(amount_total_products),
-                amount_bio_products = int(amount_bio_products),
-                amount_reduced_products = int(amount_reduced_products),
-                percentage_bio_products = round(percentage_bio_products, 4),
-                percentage_reduced_products = round(percentage_reduced_products, 4),
-
-                green_premium = round(green_premium, 4),
-                average_savings = round(average_savings, 4)
-            )
+            category_statistics = {
+                "date": date,
+                "store_id": store,
+                "category_id": category,
+                "price_min": round(price_min, 4),
+                "price_max": round(price_max, 4),
+                "price_mean": round(price_mean, 4),
+                "price_median": round(price_median, 4),
+                "price_skewness": round(price_skewness, 3),
+                "price_standard_deviation": round(price_standard_deviation, 4),
+                "price_variance": round(price_variance, 4),
+                "price_range": round(price_range, 4),
+                "price_quartile_1": round(price_quartile_1, 4),
+                "price_quartile_3": round(price_quartile_3, 4),
+                "IQR": round(IQR, 4),
+                "amount_total_products": int(amount_total_products),
+                "amount_bio_products": int(amount_bio_products),
+                "amount_reduced_products": int(amount_reduced_products),
+                "percentage_bio_products": round(percentage_bio_products, 4),
+                "percentage_reduced_products": round(percentage_reduced_products, 4),
+                "green_premium": round(green_premium, 4),
+                "average_savings": round(average_savings, 4)
+            }
 
             self.logger.info("inserting category statistics into database.\n")
-            self.upsert(session=session, instance=category_statistics)
+            db_utils.bulk_upsert(CategoryStatistics, category_statistics)
 
         # this part extracts all categories listed in the dataset and recursively creates statistics for each category
         # once the daily statistics and all category statistics are calculated and inserted, the next dataset is iterated upon
@@ -231,34 +221,7 @@ class Handler:
             category_datapoints = df["category_id"].unique().tolist()
             category_datapoints.sort()
             for category_key in category_datapoints:
-                self.calculate_statistics(df, date, store, session, category=category_key)
-
-
-    def upsert(self, session, instance):
-        """
-        upsert multiple rows into a given table with a composite primary key using a Session.
-
-        Args:
-        session: SQLAlchemy Session object
-        instance: SQLAlchemy ORM instance
-        """
-        model = type(instance)
-        primary_keys = [key.name for key in inspect(model).primary_key]
-        row = {c.name: getattr(instance, c.name) for c in model.__table__.columns}
-        key_fields = {key: row[key] for key in primary_keys}
-        update_fields = {key: value for key, value in row.items() if key not in primary_keys}
-
-        statement = (
-            update(model)
-            .where(*(getattr(model, key) == value for key, value in key_fields.items()))
-            .values(**update_fields)
-        )
-        result = session.execute(statement)
-        
-        if result.rowcount == 0:
-            session.add(instance)
-        
-        session.commit()
+                self.calculate_statistics(df, date, store, category=category_key)
 
 
     def check_availability(self):
@@ -295,15 +258,13 @@ class Handler:
         pass
 
 
-    def empty_DailyData(self):
+    def empty_DailyData(self, session):
         """
         deletes all rows from the DailyData table after dispersing relevant data to the other tables. 
         """
 
         self.logger.info("removing dataset from DailyData table.")
-        with SessionLocal() as session:
-            session.query(DailyData).delete()
-            session.commit()
+        session.query(DailyData).delete()
 
 
     def stop_program(self, success=True):
@@ -318,7 +279,6 @@ class Handler:
         if success:
             self.logger.info(f"""
                 \nFINISHED DISPERSING DATA FROM DAILYDATA TABLE.
-                \nCHECK VOLUME FOR SCRAPED DATA.
                 \nTOTAL RUNTIME: {int((self.end - self.start) // 60)} minutes and {int((self.end - self.start) % 60)} seconds (precice: {round(self.end - self.start, 4)} seconds)
                 \nTOTAL CPU RUNTIME: {round(self.endprocess - self.startprocess, 2)} seconds
                 """)
