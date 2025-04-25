@@ -35,7 +35,7 @@ def bulk_upsert(ORM, data):
     upsert multiple rows into a given table with a composite primary key.
 
     Args:
-    table: SQLAlchemy Table class
+    ORM: SQLAlchemy ORM class
     data: list of dictionaries to be upserted into the database
     """
     ## 
