@@ -1,18 +1,12 @@
 # Bazaar
-Bazaar tracks data points such as prices and offers of supermarket products over time and integrates data collection, storage, and analysis. It uses an object-oriented approach, scrapes websites using BeautifulSoup, and uses SQLAlchemy for database management. The project can be containerized with Docker.
+Bazaar tracks data points such as prices and offers of supermarket products over time and integrates data collection, storage, and analysis. It uses an object-oriented approach, scrapes websites using BeautifulSoup, and uses SQLAlchemy for database management. The project can be containerized with Docker, files for quick containerised deployment are also in the repository.
+Bazaar consists of a webscraping automation script and a database back-end. A database visualisation front-end is planned as well.
 
 In its current state, this program is built with the REWE supermarket website as reference.
 
 
-## Software Architecture
-Bazaar consists of three structural parts: 
-1. the webscraper for gathering the data
-2. the database for organizing and storing the data
-3. the parser for analysing the data and gaining insights
-
-
 ## Features
-- The program creates pandas DataFrames, which in turn can either be used to write to a relational database or create csv files that have the following columns: name, amount, price per item, price per kilogramm, whether the product currently has a reduced price, whether the product has a bio label, which category it belongs to. The scraped data is cleaned using regular expressions for easier data processing further down in the pipeline.
+- The program creates pandas DataFrames, which in turn can either be used to write to a relational database or create csv files. The scraped data is cleaned using regular expressions for easier data processing further down in the pipeline.
 - The program has a modular, object-oriented structure, making it easy for scaling. Depending on how the store_locations.json and websites.json files are configured, this program will scrape all products (or a specific subset) of all stores declared in the store_locations.json file.
 - The program checks for pagination of the website in its first http request and iterates over the pages according to the amount of existing pages. This avoids unnecessary http requests and errors while scraping.
 - The program creates logs to track runtime, CPU usage time, amount of sites scraped, and amount of products found.
@@ -21,7 +15,7 @@ Bazaar consists of three structural parts:
 
 
 ## Database schema
-This program was written with SQLAlchemy for an agnostic approach to Database Management Systems. It uses Alembic for database initiation and migration.
+This program was written with SQLAlchemy for an entirely agnostic approach to Database Management Systems. It uses Alembic for database initiation and migration.
 the structure of the schema is as follows:
 - DailyData: this is the entry point for the results of the webscraper. The data in this table is used to check for daily changes, which will get documented in the ProductObservations table. 
 - Stores: tracks which stores are being tracked.
@@ -31,15 +25,12 @@ the structure of the schema is as follows:
 - ProductObservations: this tracks all changes to products across supermarkets.
     - Tracks price or amount changes, whether a product is on offer, and whether the product is still available.
     - This table provides the data to create historical analysis of any product.
-- DailyStatistics: tracks daily metadata about all stores being tracked. 
-    - Metadata includes:
-        - the mean price and the median price of every category for the day
-        - the amount of products with a bio-label 
-        - the amount of products that are currently on offer
+- DailyStatistics: tracks daily statistics about all stores being tracked. 
     - data in this table is based on the calculations made by the parser.py script.
+- CategoryStatistics: tracks the same statistics as DailyStatistics, but on a per-category basis for more granular, actionable data.
 
 Below is a graphical representation of the database schema and the relationships between the tables:
-![Database Schema](https://i.imgur.com/aSQ15Wp.png)
+![Database Schema](https://i.imgur.com/k7Ou5en.png)
 
 
 ## Setup
@@ -75,9 +66,9 @@ alembic upgrade head
 
 
 ## Planned features 
-- automated data analysis: The data stored in the database is meant to form the basis of statistical analysis. Automated daily scraping combined with automated data analysis could allow for automated findings of trends in the products.
 - automatic cookie generation: In its current form, the script only scrapes the stores that are listed in the store_locations.json file. In order to improve scalability and enable a more holistic database, automatic cookie generation is planned as a feature in the future.
 - concurrency: currently, the script goes through one webpage at a time and stops for one second after each one. This enables the script to avoid a 429 "too many requests" HTTP status code, but it also makes the script quite slow. Implementation of concurrency could reduce runtime to be a 10th of its current runtime or less, but would require a lot more resources to avoid bot detection. One possible way of implementing this could be through a headless browser like Selenium. 
+- data visualisation: the database can build the backend for an interactive data visualisation architecture. The planned tech stack for this feature is plotly for graph creation + dash for interactive GUI + flask for web deployment.
 
 
 ## LLM usage declaration
