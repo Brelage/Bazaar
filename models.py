@@ -21,10 +21,14 @@ Base = declarative_base()
 
 class DailyData(Base):
     __tablename__ = "daily_data"
+    __table_args__ = (
+        PrimaryKeyConstraint('date', 'store_id', 'product_id'),
+    )
 
-    date = Column(Date, index=True)
-    store_id = Column(Integer, ForeignKey("stores.store_id"), index=True)
+    date = Column(Date, primary_key=True, index=True)
+    store_id = Column(Integer, ForeignKey("stores.store_id"), primary_key=True, index=True)
     product_id = Column(Integer, primary_key=True)
+    
     product_name = Column(String(255), nullable=False)
     has_bio_label = Column(Boolean, nullable=False, default=False)
     category_id = Column(ForeignKey("categories.category_id"), nullable=False, index=True)
