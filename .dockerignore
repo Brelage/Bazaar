@@ -1,0 +1,12 @@
+__pycache__/
+logs/
+data/
+workbench/
+.gitignore
+.venv
+.git
+.env
+.env.example
+store_locations_example.json
+LICENSE
+README.md
