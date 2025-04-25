@@ -133,15 +133,15 @@ class Handler:
 
         price_min = df["listed_price"].min()
         price_max = df["listed_price"].max()
-        price_mean = df["listed_price"].mean() ## average price
-        price_median = df["listed_price"].median() ## middle price
-        price_skewness = df["listed_price"].skew() ## asymmetry of the distribution of price points
-        price_standard_deviation = df["listed_price"].std() ## how much values typically deviate from the mean
-        price_variance = df["listed_price"].var() ## the square of the standard deviation
-        price_range = price_max - price_min ## difference between the lowest listed price and the highest
-        price_quartile_1 = df["listed_price"].quantile(0.25)  ## the price of products at the 25th percentile (cheaper than 75% of the rest)
-        price_quartile_3 = df["listed_price"].quantile(0.75) ## the price of products at the 75th percentile (more expensive than 75% of the rest)
-        IQR = price_quartile_3 - price_quartile_1 ## difference between the 75th and 25th percentiles
+        price_mean = df["listed_price"].mean()
+        price_median = df["listed_price"].median()
+        price_skewness = df["listed_price"].skew()
+        price_standard_deviation = df["listed_price"].std()
+        price_variance = df["listed_price"].var()
+        price_range = price_max - price_min
+        price_quartile_1 = df["listed_price"].quantile(0.25)
+        price_quartile_3 = df["listed_price"].quantile(0.75)
+        IQR = price_quartile_3 - price_quartile_1 
 
         amount_total_products = len(df)
         amount_bio_products = (df["has_bio_label"]== 1).sum()
@@ -150,13 +150,13 @@ class Handler:
         percentage_bio_products = ((amount_bio_products / amount_total_products) * 100) if amount_bio_products else 0
 
         if category != None:
-            green_premium = ( ## price difference between the average product with a bio label relative to the median price
+            green_premium = (
                 (((df.loc[df["has_bio_label"]== 1, "listed_price"]).median()) 
                  - price_median) 
                  if amount_bio_products else 0)
         
         if category != None:
-            average_savings = ( ## price difference between the average product with a reduced price relative to the median price
+            average_savings = (
                 (((df.loc[df["is_on_offer"]== 0, "listed_price"]).median()) 
                 - price_median) 
                 if amount_reduced_products else 0)
@@ -251,20 +251,21 @@ class Handler:
         if any relevant columns of row in dataset != row in Observations
             old row in Observations: update is_available bool to False
             new row in Observations
-            drop row from dataset            
+            drop row from dataset
         """
 
         self.logger.info("checking for changes between products in dataset and ProductObservations.")
         pass
 
 
-    def empty_DailyData(self, session):
+    def empty_DailyData(self):
         """
         deletes all rows from the DailyData table after dispersing relevant data to the other tables. 
         """
 
         self.logger.info("removing dataset from DailyData table.")
-        session.query(DailyData).delete()
+        with db_utils.session_commit() as session:
+            session.query(DailyData).delete()
 
 
     def stop_program(self, success=True):
