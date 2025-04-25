@@ -86,17 +86,18 @@ class DailyStatistics(Base):
     date = Column(Date, index=True, primary_key=True)
     store_id = Column(Integer, ForeignKey("stores.store_id"), index=True, primary_key=True)
 
-    price_min = Column(DECIMAL(10, 4))
-    price_max = Column(DECIMAL(10, 4))
-    price_mean = Column(DECIMAL(10, 4))
-    price_median = Column(DECIMAL(10, 4))
-    price_skewness = Column(DECIMAL(5, 3))
-    price_standard_deviation = Column(DECIMAL(10, 4))
-    price_variance = Column(DECIMAL(10, 4))
-    price_range = Column(DECIMAL(10, 4))
-    price_quartile_1 = Column(DECIMAL(10, 4))
-    price_quartile_3 = Column(DECIMAL(10, 4))
-    IQR = Column(DECIMAL(10, 4)) 
+    price_min = Column(DECIMAL(10, 4)) ## lowest price in dataset
+    price_max = Column(DECIMAL(10, 4)) ## highest price in dataset
+    price_mean = Column(DECIMAL(10, 4)) ## average price in dataset
+    price_median = Column(DECIMAL(10, 4)) ## middle price in dataset
+    price_skewness = Column(DECIMAL(5, 3)) ## asymmetry of the distribution of price points
+    price_standard_deviation = Column(DECIMAL(10, 4)) ## how much prices typically deviate from the mean
+    price_variance = Column(DECIMAL(10, 4)) ## the square of the standard deviation
+    price_range = Column(DECIMAL(10, 4)) ## difference between the lowest listed price and the highest
+    price_quartile_1 = Column(DECIMAL(10, 4)) ## the price of products at the 25th percentile (cheaper than 75% of the rest)
+    price_quartile_3 = Column(DECIMAL(10, 4)) ## the price of products at the 75th percentile (more expensive than 75% of the rest)
+    IQR = Column(DECIMAL(10, 4)) ## difference between the 75th and 25th percentiles
+
 
     amount_total_products = Column(Integer)
     amount_bio_products = Column(Integer)
@@ -114,17 +115,17 @@ class CategoryStatistics(Base):
     store_id = Column(Integer, ForeignKey("stores.store_id"), primary_key=True, index=True)
     category_id = Column(Integer, ForeignKey("categories.category_id"), primary_key=True, nullable=False, index=True)
 
-    price_min = Column(DECIMAL(10, 4))
-    price_max = Column(DECIMAL(10, 4))
-    price_mean = Column(DECIMAL(10, 4))
-    price_median = Column(DECIMAL(10, 4))
-    price_skewness = Column(DECIMAL(5, 3))
-    price_standard_deviation = Column(DECIMAL(10, 4))
-    price_variance = Column(DECIMAL(10, 4))
-    price_range = Column(DECIMAL(10, 4))
-    price_quartile_1 = Column(DECIMAL(10, 4))
-    price_quartile_3 = Column(DECIMAL(10, 4))
-    IQR = Column(DECIMAL(10, 4))
+    price_min = Column(DECIMAL(10, 4)) ## lowest price in dataset
+    price_max = Column(DECIMAL(10, 4)) ## highest price in dataset
+    price_mean = Column(DECIMAL(10, 4)) ## average price in dataset
+    price_median = Column(DECIMAL(10, 4)) ## middle price in dataset
+    price_skewness = Column(DECIMAL(5, 3)) ## asymmetry of the distribution of price points
+    price_standard_deviation = Column(DECIMAL(10, 4)) ## how much prices typically deviate from the mean
+    price_variance = Column(DECIMAL(10, 4)) ## the square of the standard deviation
+    price_range = Column(DECIMAL(10, 4)) ## difference between the lowest listed price and the highest
+    price_quartile_1 = Column(DECIMAL(10, 4)) ## the price of products at the 25th percentile (cheaper than 75% of the rest)
+    price_quartile_3 = Column(DECIMAL(10, 4)) ## the price of products at the 75th percentile (more expensive than 75% of the rest)
+    IQR = Column(DECIMAL(10, 4)) ## difference between the 75th and 25th percentiles
 
     amount_total_products = Column(Integer)
     amount_bio_products = Column(Integer)
@@ -132,5 +133,5 @@ class CategoryStatistics(Base):
     percentage_bio_products = Column(DECIMAL(10, 4), nullable=True)
     percentage_reduced_products = Column(DECIMAL(10, 4))
     
-    green_premium = Column(DECIMAL(10, 4), nullable=True) 
-    average_savings = Column(DECIMAL(10, 4))
+    green_premium = Column(DECIMAL(10, 4), nullable=True) ## average price difference between the average product with a bio label relative to the median price
+    average_savings = Column(DECIMAL(10, 4)) ## average price difference between the average product with a reduced price relative to the median price
