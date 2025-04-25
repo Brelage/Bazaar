@@ -25,9 +25,8 @@ the structure of the schema is as follows:
 - ProductObservations: this tracks all changes to products across supermarkets.
     - Tracks price or amount changes, whether a product is on offer, and whether the product is still available.
     - This table provides the data to create historical analysis of any product.
-- DailyStatistics: tracks daily statistics about all stores being tracked. 
-    - data in this table is based on the calculations made by the parser.py script.
-- CategoryStatistics: tracks the same statistics as DailyStatistics, but on a per-category basis for more granular, actionable data.
+- DailyStatistics: tracks daily statistics about all stores being tracked (for details on datapoints, check models.py file). 
+- CategoryStatistics: tracks the same statistics as DailyStatistics, but on a per-category basis for more granular, actionable data (for details on datapoints, check models.py file).
 
 Below is a graphical representation of the database schema and the relationships between the tables:
 ![Database Schema](https://i.imgur.com/k7Ou5en.png)
