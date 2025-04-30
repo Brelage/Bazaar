@@ -23,8 +23,8 @@ from models import Categories, Stores, DailyData
 
 def main():
     application = Application()
-    signal.signal(signal.SIGTERM, Application.shutdown)
-    signal.signal(signal.SIGINT, Application.shutdown)
+    signal.signal(signal.SIGTERM, application.shutdown)
+    signal.signal(signal.SIGINT, application.shutdown)
     for scraper in application.scrapers:
         scraper.scrape()
         # scraper.save_as_csv_by_category() # uncomment this line for CSV creation
