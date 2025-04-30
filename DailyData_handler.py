@@ -5,7 +5,7 @@ import logging
 import signal
 import pandas as pd
 from logging.handlers import TimedRotatingFileHandler
-from models import DailyStatistics, DailyData, CategoryStatistics
+from models import DailyStatistics, DailyData, CategoryStatistics, Products
 import db_utils
 
 
@@ -13,9 +13,9 @@ def main():
     handler = Handler()
     signal.signal(signal.SIGTERM, Handler.shutdown)
     signal.signal(signal.SIGINT, Handler.shutdown)
-    handler.create_daily_statistics()
+    #handler.create_daily_statistics()
     #handler.check_availability()
-    #handler.check_new_products()
+    handler.check_new_products()
     #handler.check_changes()
     #handler.empty_DailyData()
     handler.stop_program()
@@ -242,8 +242,24 @@ class Handler:
             drop row from dataset
         """
 
-        self.logger.info("checking for new products in dataset.")
-        pass
+        self.logger.info("setting up data to check for new products.")
+        new_products_grouped = []
+        for date in self.daily_data:
+            for store in self.daily_data[date]:
+                new_products_grouped.append(self.daily_data[date][store])
+        new_products = pd.concat(new_products_grouped)
+        new_products.drop(columns=["date", 
+                                   "store_id",  
+                                   "listed_price", 
+                                   "listed_amount", 
+                                   "listed_unit", 
+                                   "is_on_offer"], axis=1, inplace=True)
+        new_products.drop_duplicates(subset=["product_id"], inplace=True)
+        new_products = new_products.to_dict(orient="records")
+
+        self.logger.info("updating database with new products.")
+        with db_utils.session_commit() as session:
+            db_utils.bulk_upsert(Products, new_products)
 
 
     def check_changes(self):

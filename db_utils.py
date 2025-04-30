@@ -36,7 +36,7 @@ def bulk_upsert(ORM, data):
 
     Args:
     ORM: SQLAlchemy ORM class
-    data: list of dictionaries to be upserted into the database
+    data: either dictionary or list of dictionaries to be upserted into the database
     """
     ## 
     table = ORM.__table__
