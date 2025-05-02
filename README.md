@@ -15,6 +15,7 @@ In its current state, this program is built with the REWE supermarket website as
 
 
 ## Database schema
+The data structure for Bazaar is a data warehouse (OLAP), using a snowflake design with highly normalized tables. The data tracked with Bazaar allows for time-series analysis.
 This program was written with SQLAlchemy for an entirely agnostic approach to Database Management Systems. It uses Alembic for database initiation and migration.
 the structure of the schema is as follows:
 - DailyData: this is the entry point for the results of the webscraper. The data in this table is used to check for daily changes, which will get documented in the ProductObservations table. 
