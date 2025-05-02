@@ -75,7 +75,7 @@ class ProductObservations(Base):
     listed_amount = Column(DECIMAL(10,2))
     listed_unit = Column(String(10))
     is_on_offer = Column(Boolean, nullable=False)
-    is_available = Column(Boolean, nullable=False)
+    is_available = Column(Boolean, nullable=False, default=True)
 
     store = relationship("Stores", back_populates="observations")
     product = relationship("Products", back_populates="observations")
