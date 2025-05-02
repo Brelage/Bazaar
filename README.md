@@ -1,5 +1,5 @@
 # Bazaar
-Bazaar tracks data points such as prices and offers of supermarket products over time and integrates data collection, storage, and analysis. It uses an object-oriented approach, scrapes websites using BeautifulSoup, and uses SQLAlchemy for database management. The project can be containerized with Docker, files for quick containerised deployment are also in the repository.
+Bazaar tracks data points such as prices and offers of supermarket products over time and integrates data collection, storage, and analysis. It uses an object-oriented approach, scrapes websites using BeautifulSoup, and uses SQLAlchemy for database management. The project can be containerized with Docker, files for quick containerised deployment are also in the repository. Bazaar collects, cleans, stores, and labels its data to allow for data-driven decision making. Ultimately, the user can use Bazaar to make informed decisions about which store to visit, which products are best for them, and what changes can be seen across stores.
 Bazaar consists of a webscraping automation script and a database back-end. A database visualisation front-end is planned as well.
 
 In its current state, this program is built with the REWE supermarket website as reference.
