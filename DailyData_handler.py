@@ -5,7 +5,7 @@ import logging
 import signal
 import pandas as pd
 from logging.handlers import TimedRotatingFileHandler
-from models import DailyStatistics, DailyData, CategoryStatistics, Products
+import models
 import db_utils
 
 
@@ -30,8 +30,8 @@ class Handler:
 
     def setup_logger(self):
         """
-        creates a logger for monitoring both in the terminal and for reference in 
-        a "logs" folder in a subfolder named after the current date.
+        creates a timed rotating logger for monitoring both in 
+        the terminal and for reference in a "logs" folder.
         """
 
         self.start = time.time()
@@ -75,17 +75,17 @@ class Handler:
         self.logger.info("loading data.")
         # Get all unique dates and stores found in the DailyData table
         with db_utils.session_query() as session:
-            date_values = [d[0] for d in (session.query(DailyData.date).distinct().all())]
-            store_values = [s[0] for s in (session.query(DailyData.store_id).distinct().all())]
+            date_values = [d[0] for d in (session.query(models.DailyData.date).distinct().all())]
+            store_values = [s[0] for s in (session.query(models.DailyData.store_id).distinct().all())]
                 
             # Build nested dictionary of datasets
             daily_data = {}
             for date in date_values:
                 daily_data[date] = {}
                 for store in store_values:
-                    query = session.query(DailyData).filter(
-                        DailyData.date == date,
-                        DailyData.store_id == store
+                    query = session.query(models.DailyData).filter(
+                        models.DailyData.date == date,
+                        models.DailyData.store_id == store
                     )
                     df = pd.read_sql(query.statement, session.bind)
                     if not df.empty:
@@ -185,7 +185,7 @@ class Handler:
             }
             
             self.logger.info("inserting daily statistics into database.\n")
-            db_utils.bulk_upsert(DailyStatistics, daily_statistics)
+            db_utils.bulk_upsert(models.DailyStatistics, daily_statistics)
         
         else:
             category_statistics = {
@@ -213,7 +213,7 @@ class Handler:
             }
 
             self.logger.info("inserting category statistics into database.\n")
-            db_utils.bulk_upsert(CategoryStatistics, category_statistics)
+            db_utils.bulk_upsert(models.CategoryStatistics, category_statistics)
 
         # this part extracts all categories listed in the dataset and recursively creates statistics for each category
         # once the daily statistics and all category statistics are calculated and inserted, the next dataset is iterated upon
@@ -236,30 +236,63 @@ class Handler:
 
     def check_new_products(self):
         """
-        if product_id in dataset but not in Products:
-            new product row
-            new ProductObservation row
-            drop row from dataset
+        checks if there are products in DailyData but not yet in Products
         """
 
+        with db_utils.session_query() as session:
+            product_ids = [p for (p,) in session.query(models.Products.product_id).distinct().all()]
+
         self.logger.info("setting up data to check for new products.")
+        
         new_products_grouped = []
         for date in self.daily_data:
             for store in self.daily_data[date]:
                 new_products_grouped.append(self.daily_data[date][store])
         new_products = pd.concat(new_products_grouped)
-        new_products.drop(columns=["date", 
-                                   "store_id",  
-                                   "listed_price", 
-                                   "listed_amount", 
-                                   "listed_unit", 
-                                   "is_on_offer"], axis=1, inplace=True)
-        new_products.drop_duplicates(subset=["product_id"], inplace=True)
-        new_products = new_products.to_dict(orient="records")
 
-        self.logger.info("updating database with new products.")
-        with db_utils.session_commit() as session:
-            db_utils.bulk_upsert(Products, new_products)
+        existing_products = []
+        for index, value in new_products["product_id"].items():
+            if value in product_ids:
+                existing_products.append(index)
+
+        ## updates the Products table with all products that are new
+        new_products_table = new_products.drop(columns=["date", 
+                                        "store_id",  
+                                        "listed_price", 
+                                        "listed_amount", 
+                                        "listed_unit", 
+                                        "is_on_offer"], axis=1)
+        new_products_table = new_products_table.drop(existing_products)
+        new_products_table = new_products_table.drop_duplicates(subset=["product_id"])
+        new_products_table = new_products_table.to_dict(orient="records")
+        if new_products_table:
+            self.logger.info("updating database with new products.")
+            db_utils.bulk_upsert(models.Products, new_products_table)
+        
+
+        with db_utils.session_query() as session:
+            product_ids = [p for (p,) in session.query(models.ProductObservations.product_id).distinct().all()]
+
+        existing_products = []
+        for index, value in new_products["product_id"].items():
+            if value in product_ids:
+                existing_products.append(index)
+
+        ## updates the ProductObservations table with all products that are new
+        product_observations = new_products.drop(existing_products)
+        product_observations = product_observations.drop(columns=["product_name", 
+                                                                  "has_bio_label",
+                                                                  "category_id"], axis=1)
+        product_observations = product_observations.drop_duplicates(subset=["product_id", 
+                                                                            "store_id", 
+                                                                            "listed_price", 
+                                                                            "listed_amount", 
+                                                                            "listed_unit",
+                                                                            "is_on_offer"])
+        product_observations = product_observations.to_dict(orient="records")
+        if product_observations:
+            self.logger.info("updating database with product observations.")
+            db_utils.bulk_upsert(models.ProductObservations, product_observations)
 
 
     def check_changes(self):
@@ -281,7 +314,7 @@ class Handler:
 
         self.logger.info("removing dataset from DailyData table.")
         with db_utils.session_commit() as session:
-            session.query(DailyData).delete()
+            session.query(models.DailyData).delete()
 
 
     def stop_program(self, success=True):
