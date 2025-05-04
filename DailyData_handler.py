@@ -7,14 +7,15 @@ import pandas as pd
 from logging.handlers import TimedRotatingFileHandler
 import models
 import db_utils
+from sqlalchemy import update, select
 
 
 def main():
     handler = Handler()
     signal.signal(signal.SIGTERM, Handler.shutdown)
     signal.signal(signal.SIGINT, Handler.shutdown)
-    #handler.create_daily_statistics()
-    #handler.check_availability()
+    handler.create_daily_statistics()
+    handler.check_availability()
     handler.check_new_products()
     #handler.check_changes()
     #handler.empty_DailyData()
@@ -231,19 +232,28 @@ class Handler:
         """
 
         self.logger.info("comparing availability with existing products.")
-        pass
+        stmt = (
+            update(models.ProductObservations)
+            .where(~models.ProductObservations.product_id.in_(
+                select(models.DailyData.product_id)))
+            .values(is_available=False)
+        )
+        with db_utils.session_commit() as session:
+            session.execute(stmt)
 
 
     def check_new_products(self):
         """
-        checks if there are products in DailyData but not yet in Products
+        checks if there are products in DailyData but not yet in Products.
+        Creates an entry in both the products table and in the product_observations table.
         """
-
-        with db_utils.session_query() as session:
-            product_ids = [p for (p,) in session.query(models.Products.product_id).distinct().all()]
 
         self.logger.info("setting up data to check for new products.")
         
+        with db_utils.session_query() as session:
+            product_ids = [p for (p,) in session.query(models.Products.product_id).distinct().all()]
+        
+        ## flattens the DailyData dataset into a single data frame 
         new_products_grouped = []
         for date in self.daily_data:
             for store in self.daily_data[date]:
@@ -256,43 +266,56 @@ class Handler:
                 existing_products.append(index)
 
         ## updates the Products table with all products that are new
-        new_products_table = new_products.drop(columns=["date", 
-                                        "store_id",  
-                                        "listed_price", 
-                                        "listed_amount", 
-                                        "listed_unit", 
-                                        "is_on_offer"], axis=1)
-        new_products_table = new_products_table.drop(existing_products)
-        new_products_table = new_products_table.drop_duplicates(subset=["product_id"])
-        new_products_table = new_products_table.to_dict(orient="records")
+        new_products_table = (
+            new_products
+            .drop(columns=["date", 
+                           "store_id",  
+                           "listed_price", 
+                           "listed_amount", 
+                           "listed_unit", 
+                           "is_on_offer"], axis=1)
+            .drop(existing_products)
+            .drop_duplicates(subset=["product_id"])
+            .to_dict(orient="records")
+        )
         if new_products_table:
             self.logger.info("updating database with new products.")
             db_utils.bulk_upsert(models.Products, new_products_table)
-        
-
-        with db_utils.session_query() as session:
-            product_ids = [p for (p,) in session.query(models.ProductObservations.product_id).distinct().all()]
-
-        existing_products = []
-        for index, value in new_products["product_id"].items():
-            if value in product_ids:
-                existing_products.append(index)
 
         ## updates the ProductObservations table with all products that are new
-        product_observations = new_products.drop(existing_products)
-        product_observations = product_observations.drop(columns=["product_name", 
-                                                                  "has_bio_label",
-                                                                  "category_id"], axis=1)
-        product_observations = product_observations.drop_duplicates(subset=["product_id", 
-                                                                            "store_id", 
-                                                                            "listed_price", 
-                                                                            "listed_amount", 
-                                                                            "listed_unit",
-                                                                            "is_on_offer"])
-        product_observations = product_observations.to_dict(orient="records")
-        if product_observations:
+        with db_utils.session_query() as session:
+            existing_observations = set(
+                session.query(
+                    models.ProductObservations.product_id,
+                    models.ProductObservations.store_id
+                ).distinct().all()
+            )
+
+        latest_entries = (
+            new_products
+            .sort_values("date")
+            .groupby(["product_id", "store_id"], as_index=False)
+            .last()
+        )
+        
+        def pair_exists(row):
+            return (row["product_id"], row["store_id"]) in existing_observations
+        
+        new_observations = latest_entries[~latest_entries.apply(pair_exists, axis=1)]
+
+        new_observations = (
+            new_observations
+            .drop(columns=["product_name", 
+                           "has_bio_label",
+                           "category_id"], axis=1)
+        )
+        new_observations["is_available"] = True
+        new_observations.to_dict(orient="records")
+
+        if new_observations:
             self.logger.info("updating database with product observations.")
-            db_utils.bulk_upsert(models.ProductObservations, product_observations)
+            with db_utils.session_commit() as session:
+                session.bulk_insert_mappings(models.ProductObservations, new_observations)
 
 
     def check_changes(self):
@@ -304,7 +327,39 @@ class Handler:
         """
 
         self.logger.info("checking for changes between products in dataset and ProductObservations.")
-        pass
+        
+        new_products_grouped = []
+        for date in self.daily_data:
+            for store in self.daily_data[date]:
+                new_products_grouped.append(self.daily_data[date][store])
+        new_products = pd.concat(new_products_grouped)
+        new_products = new_products.drop(columns=["product_name",
+                                                  "has_bio_label",
+                                                  "category_id"], axis=1)
+        new_products = new_products.drop_duplicates(subset="product_id", keep="last")
+        
+        with db_utils.session_query() as session:
+            query = session.query(models.ProductObservations).where(
+                models.ProductObservations.is_available == True
+            )
+            latest_observations = pd.read_sql(query.statement, session.bind)
+
+        primary_keys = ["store_id", "product_id", "date"]
+        comparison_columns = ["listed_price", "listed_amount", "listed_unit", "is_on_offer"]
+
+        changed_products = []
+        for row in latest_observations:
+            for i in comparison_columns:
+                if row[i] not in latest_observations:
+                    changed_products.append(index)
+
+        stmt = (
+            update(models.ProductObservations)
+            .where(~models.ProductObservations.product_id.in_(changed_products))
+            .values(is_available=False)
+            )
+        with db_utils.session_commit() as session:
+            session.execute(stmt)
 
 
     def empty_DailyData(self):
