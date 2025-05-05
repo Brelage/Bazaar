@@ -17,7 +17,7 @@ def main():
     handler.create_daily_statistics()
     handler.check_availability()
     handler.check_new_products()
-    #handler.check_changes()
+    handler.check_changes()
     #handler.empty_DailyData()
     handler.stop_program()
 
@@ -250,6 +250,7 @@ class Handler:
 
         self.logger.info("setting up data to check for new products.")
         
+        ## gets all product IDs already in the Products table 
         with db_utils.session_query() as session:
             product_ids = [p for (p,) in session.query(models.Products.product_id).distinct().all()]
         
@@ -301,16 +302,16 @@ class Handler:
         def pair_exists(row):
             return (row["product_id"], row["store_id"]) in existing_observations
         
-        new_observations = latest_entries[~latest_entries.apply(pair_exists, axis=1)]
+        new_observations_df = latest_entries[~latest_entries.apply(pair_exists, axis=1)]
 
+        new_observations_df["is_available"] = True
         new_observations = (
-            new_observations
+            new_observations_df
             .drop(columns=["product_name", 
                            "has_bio_label",
                            "category_id"], axis=1)
+            .to_dict(orient="records")
         )
-        new_observations["is_available"] = True
-        new_observations.to_dict(orient="records")
 
         if new_observations:
             self.logger.info("updating database with product observations.")
@@ -332,34 +333,61 @@ class Handler:
         for date in self.daily_data:
             for store in self.daily_data[date]:
                 new_products_grouped.append(self.daily_data[date][store])
-        new_products = pd.concat(new_products_grouped)
-        new_products = new_products.drop(columns=["product_name",
-                                                  "has_bio_label",
-                                                  "category_id"], axis=1)
-        new_products = new_products.drop_duplicates(subset="product_id", keep="last")
-        
+        new_products = (pd
+                        .concat(new_products_grouped)
+                        .sort_values("date")
+                        .groupby(["product_id", "store_id"], as_index=False)
+                        .last()
+                        .drop(columns=["product_name", "has_bio_label", "category_id"], axis=1)
+            )
+
         with db_utils.session_query() as session:
             query = session.query(models.ProductObservations).where(
                 models.ProductObservations.is_available == True
             )
             latest_observations = pd.read_sql(query.statement, session.bind)
 
-        primary_keys = ["store_id", "product_id", "date"]
+        # Merge on primary keys
+        primary_keys = ["store_id", "product_id"]
         comparison_columns = ["listed_price", "listed_amount", "listed_unit", "is_on_offer"]
+        merged = pd.merge(
+            new_products,
+            latest_observations,
+            on=primary_keys,
+            how="left",
+            suffixes=("", "_obs")
+        )
 
-        changed_products = []
-        for row in latest_observations:
-            for i in comparison_columns:
-                if row[i] not in latest_observations:
-                    changed_products.append(index)
+        # Find rows where any comparison column differs
+        def row_changed(row):
+            for col in comparison_columns:
+                if row[f"{col}"] != row[f"{col}_obs"]:
+                    return True
+            return False
 
-        stmt = (
-            update(models.ProductObservations)
-            .where(~models.ProductObservations.product_id.in_(changed_products))
-            .values(is_available=False)
-            )
-        with db_utils.session_commit() as session:
-            session.execute(stmt)
+        changed_mask = merged.apply(row_changed, axis=1)
+        changed_products = merged[changed_mask]
+
+        # Insert new observations
+        insert_columns = primary_keys + ["date"] + [f"{col}" for col in comparison_columns]
+        to_insert = changed_products[insert_columns].copy()
+        to_insert.columns = primary_keys + ["date"] + comparison_columns
+        to_insert["is_available"] = True
+        records = to_insert.to_dict(orient="records")
+
+        if records:
+            self.logger.info("Inserting changed product observations.")
+            with db_utils.session_commit() as session:
+                session.bulk_insert_mappings(models.ProductObservations, records)
+
+            # Mark previous as unavailable
+            with db_utils.session_commit() as session:
+                for _, row in changed_products.iterrows():
+                    session.query(models.ProductObservations).filter(
+                        models.ProductObservations.product_id == row["product_id"],
+                        models.ProductObservations.store_id == row["store_id"],
+                        models.ProductObservations.is_available == True
+                    ).update({"is_available": False})
 
 
     def empty_DailyData(self):
