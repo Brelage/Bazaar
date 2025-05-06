@@ -477,7 +477,7 @@ class Scraper:
 
         finally:
             try:
-                subprocess.run([sys.executable, "DailyData_handler.py"])
+                subprocess.run([sys.executable, "data_handler.py"])
             except Exception as e:
                 self.parent.logger.error(f"an error ocurred while creating statistical data: {e}")
 

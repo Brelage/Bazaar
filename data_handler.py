@@ -7,7 +7,7 @@ import time
 from logging.handlers import TimedRotatingFileHandler
 
 import pandas as pd
-from sqlalchemy import select, update
+from sqlalchemy import select, update, func
 
 import db_utils
 import models
@@ -19,7 +19,7 @@ def main():
     signal.signal(signal.SIGTERM, Handler.shutdown)
     signal.signal(signal.SIGINT, Handler.shutdown)
     handler.create_daily_statistics()
-    #handler.check_availability()
+    handler.check_availability()
     #handler.check_new_products()
     #handler.check_changes()
     #handler.empty_DailyData()
@@ -41,7 +41,7 @@ class Handler:
 
         self.start = time.time()
         self.startprocess = time.process_time()
-        logs_path = os.path.join("logs", "DailyData_handler")
+        logs_path = os.path.join("logs", "data_handler")
         os.makedirs(logs_path, exist_ok=True)
         
         self.logger = logging.getLogger(__name__)
@@ -52,7 +52,7 @@ class Handler:
             
             ## config for the .log file generated
             file_handler = TimedRotatingFileHandler(
-            f"logs/DailyData_handler/DailyData_handler.log",
+            f"logs/data_handler/data_handler.log",
             when="midnight",
             backupCount=30
             )
@@ -236,14 +236,32 @@ class Handler:
         """
 
         self.logger.info("comparing availability with existing products.")
-        stmt = (
+        
+        latest_date_subq = (
+            select(
+                models.DailyData.product_id,
+                func.max(models.DailyData.date).label("max_date")
+            )
+            .group_by(models.DailyData.product_id)
+            .subquery()
+        )
+
+        latest_product_ids_subq = (
+            select(models.DailyData.product_id)
+            .join(
+                latest_date_subq,
+                (models.DailyData.product_id == latest_date_subq.c.product_id) &
+                (models.DailyData.date == latest_date_subq.c.max_date)
+            ).subquery()
+        )
+        set_unavailable = (
             update(models.ProductObservations)
-            .where(~models.ProductObservations.product_id.in_(
-                select(models.DailyData.product_id)))
+            .where(~models.ProductObservations.product_id.in_(latest_product_ids_subq))
             .values(is_available=False)
         )
+
         with db_utils.session_commit() as session:
-            session.execute(stmt)
+            session.execute(set_unavailable)
 
 
     def check_new_products(self):
