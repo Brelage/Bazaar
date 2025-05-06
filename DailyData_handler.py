@@ -13,6 +13,7 @@ import db_utils
 import models
 from config import LOG_LEVEL
 
+
 def main():
     handler = Handler()
     signal.signal(signal.SIGTERM, Handler.shutdown)

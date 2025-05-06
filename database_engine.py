@@ -1,15 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from os import getenv
 from sys import exit
-from dotenv import load_dotenv
-
-try:
-    load_dotenv()
-    DATABASE_URL = getenv("DATABASE_URL")    
-except ValueError as e:
-    print(f"{e} Error. Database_URL not found in environment variable.")
-    exit(1)
+from config import DATABASE_URL
     
 engine = create_engine(DATABASE_URL)
 

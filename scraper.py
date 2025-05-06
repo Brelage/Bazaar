@@ -19,7 +19,7 @@ from sqlalchemy.exc import IntegrityError
 
 import db_utils
 from models import Categories, Stores, DailyData
-from config import LOG_LEVEL
+from config import LOG_LEVEL, LOCATIONS, WEBSITES
 
 
 def main():
@@ -50,7 +50,7 @@ class Application:
         self.total_items = 0 ## variable for the Scraper class to track the amount of products scraped, which will be documented in the logs file
         self.today = datetime.now().date()
         self.setup_logger()
-        self.store_locations = self.setup_locations()
+        self.store_locations = LOCATIONS
         self.scrapers = self.setup_scrapers()
         
 
@@ -111,45 +111,12 @@ class Application:
                 os.makedirs(self.today_data_path, exist_ok=True)
 
 
-    def setup_locations(self):
-        """
-        gets all key-value pairs in the store_locations.json file, which includes the address of
-        a store and the session cookie to load the store-specific data on the website.
-        """
-
-        try:
-            with open("store_locations.json", "r") as file:
-                store_locations = json.load(file).get("locations", None)
-                if not store_locations:
-                    self.logger.critical("Store location not found in store_locations.json")
-                    raise ValueError
-                return store_locations
-        
-        except FileNotFoundError:
-            self.logger.critical("store_locations.json file not found")
-            raise FileNotFoundError
-        except json.JSONDecodeError:
-            self.logger.critical("Invalid JSON format in store_locations.json")
-            raise ValueError
-
-
     def setup_scrapers(self):
         """
-        creates instances of the Scraper class based on the amount of URLs in the websites.json file.
+        creates instances of the Scraper class based on the amount of URLs in the config file.
         """
 
-        with open ("websites.json", "r") as file:
-            try:
-                websites = json.load(file).get("websites")
-            
-            except FileNotFoundError:
-                self.logger.critical("websites.json file not found")
-                raise FileNotFoundError
-            except json.JSONDecodeError:
-                self.logger.critical("Invalid JSON format in websites.json")
-                raise ValueError
-
-        scrapers = [Scraper(self, websites, location, location_cookie) for location, location_cookie in self.store_locations.items()]
+        scrapers = [Scraper(self, WEBSITES, location, location_cookie) for location, location_cookie in self.store_locations.items()]
         return scrapers
 
 
@@ -190,12 +157,12 @@ class Application:
 class Scraper:
     """
     scrapes all websites it gets assigned and saves the result as a csv files and/or as a database entry.
-    For every store location in the store_locations.json file, one Scraper will be created.
+    For every store location in listed the config file, one Scraper will be created.
     
     Args:
     parent: needs composition with the Application class to function.
     websites: list of strings of the URLs which it will scrape.
-    location: dictionary containing a key-value pair of location address and corresponding cookie value from the store_locations.json file
+    location: dictionary containing a key-value pair of location address and corresponding cookie value from the LOCATION dictionary in the config file
 
     Output: 
     depending on which functions are called at the beginning of the script:
@@ -308,7 +275,7 @@ class Scraper:
 
     def scrape(self):
         """
-        scrapes the products of every website listed in the websites.json file
+        scrapes the products of every website listed in the config file
 
         output:
         a dictionary of pandas dataframes structured after the DailyData ORM in the models.py script
@@ -441,7 +408,7 @@ class Scraper:
 
     def save_as_csv_by_category(self):
         """
-        creates csv files for each category listed in the websites.json file out of
+        creates csv files for each category listed in the config file out of
         all the products saved in the self.all_products variable.
         """
 
