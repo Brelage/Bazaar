@@ -1,23 +1,26 @@
-import os 
+import logging
+import os
+import signal
 import sys
 import time
-import logging
-import signal
-import pandas as pd
-from logging.handlers import TimedRotatingFileHandler
-import models
-import db_utils
-from sqlalchemy import update, select
 
+from logging.handlers import TimedRotatingFileHandler
+
+import pandas as pd
+from sqlalchemy import select, update
+
+import db_utils
+import models
+from config import LOG_LEVEL
 
 def main():
     handler = Handler()
     signal.signal(signal.SIGTERM, Handler.shutdown)
     signal.signal(signal.SIGINT, Handler.shutdown)
     handler.create_daily_statistics()
-    handler.check_availability()
-    handler.check_new_products()
-    handler.check_changes()
+    #handler.check_availability()
+    #handler.check_new_products()
+    #handler.check_changes()
     #handler.empty_DailyData()
     handler.stop_program()
 
@@ -41,7 +44,7 @@ class Handler:
         os.makedirs(logs_path, exist_ok=True)
         
         self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.INFO)  
+        self.logger.setLevel(LOG_LEVEL)  
 
         if not self.logger.handlers:
             formatter = logging.Formatter(fmt="%(asctime)s: %(message)s", datefmt="%Y.%m.%d %H:%M:%S")
@@ -373,7 +376,9 @@ class Handler:
         to_insert = changed_products[insert_columns].copy()
         to_insert.columns = primary_keys + ["date"] + comparison_columns
         to_insert["is_available"] = True
-        records = to_insert.to_dict(orient="records")
+        records = (to_insert
+                   .drop_duplicates(subset=comparison_columns)
+                   .to_dict(orient="records"))
 
         if records:
             self.logger.info("Inserting changed product observations.")

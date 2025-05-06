@@ -19,6 +19,7 @@ from sqlalchemy.exc import IntegrityError
 
 import db_utils
 from models import Categories, Stores, DailyData
+from config import LOG_LEVEL
 
 
 def main():
@@ -63,7 +64,7 @@ class Application:
         os.makedirs(logs_path, exist_ok=True)
         
         self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.INFO)  
+        self.logger.setLevel(LOG_LEVEL)  
 
         if not self.logger.handlers:
             formatter = logging.Formatter(fmt="%(asctime)s: %(message)s", datefmt="%Y.%m.%d %H:%M:%S")
