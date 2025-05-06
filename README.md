@@ -7,7 +7,7 @@ In its current state, this program is built with the REWE supermarket website as
 
 ## Features
 - The program creates pandas DataFrames, which in turn can either be used to write to a relational database or create csv files. The scraped data is cleaned using regular expressions for easier data processing further down in the pipeline.
-- The program has a modular, object-oriented structure, making it easy for scaling. Depending on how the store_locations.json and websites.json files are configured, this program will scrape all products (or a specific subset) of all stores declared in the store_locations.json file.
+- The program has a modular, object-oriented structure, making it easy for scaling. Depending on how the config file is configured, this program will scrape all products (or a specific subset) of all declared stores.
 - The program checks for pagination of the website in its first http request and iterates over the pages according to the amount of existing pages. This avoids unnecessary http requests and errors while scraping.
 - The program creates logs to track runtime, CPU usage time, amount of sites scraped, and amount of products found.
 - The program bypasses Cloudflare javascript blocking by using the cloudscraper library. It preloads randomized User-Agents, headers, and cookies for HTTP-Requests to bypass Cloudflare bot detection. The requests to the websites usually reach a cloudflareBotScore (a score from 1 to 99 that indicates how likely that request came from a bot) above 90. According to Cloudflare, "a score of 1 means Cloudflare is quite certain the request was automated, while a score of 99 means Cloudflare is quite certain the request came from a human".
@@ -46,13 +46,13 @@ git clone https://github.com/Brelage/Bazaar
 pip install -r requirements.txt
 ```
 
-3. store session cookies in store_locations.json file: 
+3. store session cookies in the config file: 
 When opening any of the webpages of the REWE supermarket in a browser, a pop-up window shows up asking for a postcode to find the closest supermarket. In order to inform the Scraper which supermarket to scrape, a cookie with the name "_rdfa" needs to be sent along with the http request, with _rdfa being a session cookie that informs the website about the desired store. 
-Since automated cookie generation isn't implemented yet, you need to extract this cookie from your own browser session after you have selected a store location and save it in the the store_locations.json file (see the store_locations_example.json file as reference). 
+Since automated cookie generation isn't implemented yet, you need to extract this cookie from your own browser session after you have selected a store location and save it in the the config file in the LOCATIONS variable. The structure of LOCATIONS is a Python dictionary where the key is the store's location and the value is the session cookie associated with that location. 
 
-4. initialise the database using Alembic.
-For this, a .env file needs to be configured with the URL to the database. 
-The .env.example file is configured for an implementation of this program using SQLite. It can be used as a reference. If another type of Database Management System like MySQL or PostgreSQL is intended to be used for this program, then adjust accordingly.
+1. initialise the database using Alembic.
+For this, the config file needs to be configured with the URL to the database. 
+By default, the config file is configured for an implementation of this program using SQLite. If a SQLite database is fine, then no changes need to be made. If another type of Database Management System like MySQL or PostgreSQL is intended to be used for this program, then adjust the config file and the database_engine.py script accordingly, passing in credentials. Alternatively, a .env file or an external secrets manager can be used as well, though this would require more adjustments.
 
 In order for the program to run properly, a database needs to be initialised, preferably using Alembic. For this, simply run the following commands:
 ```
@@ -62,11 +62,9 @@ alembic revision --autogenerate -m "database initialisation"
 alembic upgrade head
 ```
 
-5. (optional) configure the websites.json file to only scrape certain categories of the supermarket
-
 
 ## Planned features 
-- automatic cookie generation: In its current form, the script only scrapes the stores that are listed in the store_locations.json file. In order to improve scalability and enable a more holistic database, automatic cookie generation is planned as a feature in the future.
+- automatic cookie generation: In its current form, the script only scrapes the stores that are listed in the config file. In order to improve scalability and enable a more holistic database, automatic cookie generation is planned as a feature in the future.
 - concurrency: currently, the script goes through one webpage at a time and stops for one second after each one. This enables the script to avoid a 429 "too many requests" HTTP status code, but it also makes the script quite slow. Implementation of concurrency could reduce runtime to be a 10th of its current runtime or less, but would require a lot more resources to avoid bot detection. One possible way of implementing this could be through a headless browser like Selenium. 
 - data visualisation: the database can build the backend for an interactive data visualisation architecture. The planned tech stack for this feature is plotly for graph creation + dash for interactive GUI + flask for web deployment.
 
