@@ -19,8 +19,8 @@ def main():
     signal.signal(signal.SIGTERM, Handler.shutdown)
     signal.signal(signal.SIGINT, Handler.shutdown)
     handler.create_daily_statistics()
-    handler.check_availability()
     #handler.check_new_products()
+    #handler.check_availability()
     #handler.check_changes()
     #handler.empty_DailyData()
     handler.stop_program()
@@ -229,41 +229,6 @@ class Handler:
                 self.calculate_statistics(df, date, store, category=category_key)
 
 
-    def check_availability(self):
-        """
-        if product_id in Observations.is_available == True but not in dataset:
-            in Observations: set is_available bool to False
-        """
-
-        self.logger.info("comparing availability with existing products.")
-        
-        latest_date_subq = (
-            select(
-                models.DailyData.product_id,
-                func.max(models.DailyData.date).label("max_date")
-            )
-            .group_by(models.DailyData.product_id)
-            .subquery()
-        )
-
-        latest_product_ids_subq = (
-            select(models.DailyData.product_id)
-            .join(
-                latest_date_subq,
-                (models.DailyData.product_id == latest_date_subq.c.product_id) &
-                (models.DailyData.date == latest_date_subq.c.max_date)
-            ).subquery()
-        )
-        set_unavailable = (
-            update(models.ProductObservations)
-            .where(~models.ProductObservations.product_id.in_(latest_product_ids_subq))
-            .values(is_available=False)
-        )
-
-        with db_utils.session_commit() as session:
-            session.execute(set_unavailable)
-
-
     def check_new_products(self):
         """
         checks if there are products in DailyData but not yet in Products.
@@ -339,6 +304,41 @@ class Handler:
             self.logger.info("updating database with product observations.")
             with db_utils.session_commit() as session:
                 session.bulk_insert_mappings(models.ProductObservations, new_observations)
+
+
+    def check_availability(self):
+        """
+        if product_id in Observations.is_available == True but not in dataset:
+            in Observations: set is_available bool to False
+        """
+
+        self.logger.info("comparing availability with existing products.")
+        
+        latest_date_subq = (
+            select(
+                models.DailyData.product_id,
+                func.max(models.DailyData.date).label("max_date")
+            )
+            .group_by(models.DailyData.product_id)
+            .subquery()
+        )
+
+        latest_product_ids_subq = (
+            select(models.DailyData.product_id)
+            .join(
+                latest_date_subq,
+                (models.DailyData.product_id == latest_date_subq.c.product_id) &
+                (models.DailyData.date == latest_date_subq.c.max_date)
+            ).subquery()
+        )
+        set_unavailable = (
+            update(models.ProductObservations)
+            .where(~models.ProductObservations.product_id.in_(select(latest_product_ids_subq)))
+            .values(is_available=False)
+        )
+
+        with db_utils.session_commit() as session:
+            session.execute(set_unavailable)
 
 
     def check_changes(self):
