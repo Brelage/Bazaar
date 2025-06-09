@@ -308,7 +308,7 @@ class Scraper:
                     if page == 1:
                         last_page = self.check_pagination(soup)
 
-                    matches = soup.find_all("article")
+                    matches = soup.find_all("section", class_="search-service-product product plrProductGrid__tile")
                     for item in matches:
                         self.parent.total_items += 1
                         
