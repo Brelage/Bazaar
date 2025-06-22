@@ -181,3 +181,4 @@ alembic/
 data/CSVs/
 tester.py
 .ruff_cache/
+.vscode
